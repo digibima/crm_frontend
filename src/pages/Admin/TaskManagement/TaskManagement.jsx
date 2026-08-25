@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import constant from "../../../env";
 import { CallApi } from "../../../api";
-import { toast } from "react-toastify";
+
+import { toast as reactToast } from "react-toastify";
 import {
   FiPlus,
   FiX,
@@ -13,7 +14,9 @@ import {
   FiRefreshCw,
   FiAlertTriangle,
   FiFilter,
-  FiDownload
+  FiDownload,
+  FiClock,
+  FiInfo
 } from "react-icons/fi";
 
 const Modal = ({
@@ -127,6 +130,12 @@ const TaskManagement = () => {
 
   const [selectedTaskData, setSelectedTaskData] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewActiveTab, setViewActiveTab] = useState("details"); // Tab state
+
+  // Activity Log States
+  const [taskLogs, setTaskLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -143,6 +152,34 @@ const TaskManagement = () => {
     fetchTasksLog();
   }, [currentPage, activeTab]);
 
+  // Fetch Task Logs function call
+  const fetchTaskLogs = async (taskId) => {
+    if (!taskId) return;
+    try {
+      setLogsLoading(true);
+      const logApiUrl = `/api/tasks/${taskId}/logs`;
+      const response = await CallApi(logApiUrl, "GET");
+
+      if (response && response.status) {
+        setTaskLogs(response.data?.data || response.data || []);
+      } else {
+        setTaskLogs([]);
+      }
+    } catch (error) {
+      reactToast.error("Failed to load task activity logs");
+      setTaskLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const handleTabClick = (tabName) => {
+    setViewActiveTab(tabName);
+    if (tabName === "history" && selectedTaskData?.id) {
+      fetchTaskLogs(selectedTaskData.id);
+    }
+  };
+
   const isRenewalSelected = () => {
     if (isCustomSubCategory) {
       return customSubCategoryText.toLowerCase().includes("renewal");
@@ -153,7 +190,6 @@ const TaskManagement = () => {
     return subCatObj?.name?.toLowerCase().includes("renewal") || false;
   };
 
-  // Helper method to dynamically append search keys to payload params
   const appendDynamicSearchParam = (urlParams) => {
     if (searchTerm.trim()) {
       switch (searchType) {
@@ -180,21 +216,25 @@ const TaskManagement = () => {
     }
   };
 
-  const handleSearchButtonClick = async () => {
+  const handleSearchButtonClick = async (overridePage = null) => {
     try {
       setSearchApiLoading(true);
       setLoading(true);
 
+      const pageToFetch = overridePage !== null ? overridePage : 1;
+      if (overridePage === null) {
+        setCurrentPage(1);
+      }
+
       const baseSearchUrl = "/api/tasks/search";
       const params = new URLSearchParams();
 
-      // Select dropdown criteria ke basis par sahi payload key select karega
       appendDynamicSearchParam(params);
 
       if (filterStatus) params.append("status", filterStatus);
       if (filterLeadDate) params.append("fromDate", filterLeadDate);
       if (filterFollowUpDate) params.append("toDate", filterFollowUpDate);
-      params.append("page", currentPage);
+      params.append("page", pageToFetch);
       params.append("perPage", itemsPerPage);
       if (activeTab !== "All") params.append("category", activeTab);
 
@@ -208,15 +248,15 @@ const TaskManagement = () => {
         setAllTasks(taskData);
         setTotalPages(meta.lastPage || 1);
         setTotalEntries(meta.total || 0);
-        toast.success("Search results updated!");
+        reactToast.success("Search results updated!");
       } else {
         setAllTasks([]);
         setTotalPages(1);
         setTotalEntries(0);
-        toast.info("No matching tasks found.");
+        reactToast.info("No matching tasks found.");
       }
     } catch (error) {
-      toast.error("Error fetching search results from server");
+      reactToast.error("Error fetching search results from server");
     } finally {
       setSearchApiLoading(false);
       setLoading(false);
@@ -225,7 +265,7 @@ const TaskManagement = () => {
 
   const fetchTasksLog = async () => {
     if (searchTerm.trim() || filterStatus || filterLeadDate || filterFollowUpDate) {
-      handleSearchButtonClick();
+      handleSearchButtonClick(currentPage);
       return;
     }
 
@@ -254,7 +294,7 @@ const TaskManagement = () => {
         setTotalEntries(0);
       }
     } catch (error) {
-      toast.error("Unable to load tasks from server");
+      reactToast.error("Unable to load tasks from server");
     } finally {
       setLoading(false);
     }
@@ -272,7 +312,7 @@ const TaskManagement = () => {
         setIsEmployeeFetched(true);
       }
     } catch (error) {
-      toast.error("Unable to load employee list");
+      reactToast.error("Unable to load employee list");
     }
   };
 
@@ -288,7 +328,7 @@ const TaskManagement = () => {
         setIsCategoryFetched(true);
       }
     } catch (error) {
-      toast.error("Unable to load insurance categories");
+      reactToast.error("Unable to load insurance categories");
     }
   };
 
@@ -314,7 +354,7 @@ const TaskManagement = () => {
         setSubCategoryOptions(response.data?.data || response.data || []);
       }
     } catch (error) {
-      toast.error("Unable to load sub-categories");
+      reactToast.error("Unable to load sub-categories");
     }
   };
 
@@ -335,7 +375,7 @@ const TaskManagement = () => {
         setCompanyOptions(response.data?.data || response.data || []);
       }
     } catch (error) {
-      toast.error("Unable to load companies");
+      reactToast.error("Unable to load companies");
     }
   };
 
@@ -376,23 +416,23 @@ const TaskManagement = () => {
     const hasCategory = selectedCategory || (isCustomCategory && customCategoryText.trim());
     if (!hasCategory) {
       newErrors.category = true;
-      toast.warning("Please select or enter an Insurance Category");
+      reactToast.warning("Please select or enter an Insurance Category");
     }
 
     const hasSubCategory = selectedSubCategory || (isCustomSubCategory && customSubCategoryText.trim());
     if (!hasSubCategory) {
       newErrors.subCategory = true;
-      toast.warning("Please select or enter an Insurance Sub-Category");
+      reactToast.warning("Please select or enter an Insurance Sub-Category");
     }
 
     if (!clientName.trim()) {
       newErrors.clientName = true;
-      toast.warning("Please enter the Client Name");
+      reactToast.warning("Please enter the Client Name");
     }
 
     if (!taskAction.trim()) {
       newErrors.taskAction = true;
-      toast.warning("Please provide a Task Action / Instruction");
+      reactToast.warning("Please provide a Task Action / Instruction");
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -405,25 +445,25 @@ const TaskManagement = () => {
     try {
       const finalCatId = await createCustomCategory();
       if (isCustomCategory && !finalCatId) {
-        toast.error("Failed to save custom category");
+        reactToast.error("Failed to save custom category");
         return;
       }
 
       const finalSubCatId = await createCustomSubCategory(finalCatId);
       if (isCustomSubCategory && !finalSubCatId) {
-        toast.error("Failed to save custom sub-category");
+        reactToast.error("Failed to save custom sub-category");
         return;
       }
 
       const finalCompId = await createCustomCompany(finalSubCatId);
       if (isCustomCompany && !finalCompId) {
-        toast.error("Failed to save custom company");
+        reactToast.error("Failed to save custom company");
         return;
       }
 
       if (Number(finalCatId) === 1 && !motorRto.trim()) {
         setErrors({ motorRto: true });
-        toast.warning("Please enter the RTO Number for Motor Insurance");
+        reactToast.warning("Please enter the RTO Number for Motor Insurance");
         return;
       }
 
@@ -474,15 +514,15 @@ const TaskManagement = () => {
       );
 
       if (response && response.status) {
-        toast.success("Task assigned successfully!");
+        reactToast.success("Task assigned successfully!");
         resetForm();
         fetchTasksLog();
       } else {
-        toast.error(response?.message || "Failed to assign task");
+        reactToast.error(response?.message || "Failed to assign task");
       }
     } catch (error) {
       console.error("Submission Error:", error);
-      toast.error("Something went wrong while submitting the task");
+      reactToast.error("Something went wrong while submitting the task");
     }
   };
 
@@ -497,17 +537,17 @@ const TaskManagement = () => {
       );
 
       if (response && response.status) {
-        toast.success("Task deleted successfully");
+        reactToast.success("Task deleted successfully");
         setIsDeleteModalOpen(false);
         setSelectedTaskData(null);
         fetchTasksLog();
       } else {
-        toast.error(response?.message || "Failed to delete task");
+        reactToast.error(response?.message || "Failed to delete task");
       }
     } catch (error) {
       const errorMsg =
         error?.response?.data?.message || "Something went wrong while deleting";
-      toast.error(errorMsg);
+      reactToast.error(errorMsg);
     } finally {
       setIsDeleting(false);
     }
@@ -594,17 +634,15 @@ const TaskManagement = () => {
         setAllTasks(taskData);
         setTotalPages(meta.lastPage || 1);
         setTotalEntries(meta.total || taskData.length);
-        toast.info("Filters cleared, showing all tasks.");
+        reactToast.info("Filters cleared, showing all tasks.");
       } else {
         setAllTasks([]);
         setTotalPages(1);
         setTotalEntries(0);
       }
     } catch (error) {
-      toast.error("Unable to load tasks from server");
-    } finally {
-      setLoading(false);
-    }
+      reactToast.error("Unable to load tasks from server");
+    } 
   };
 
   const handleEditSubmit = async (e) => {
@@ -614,31 +652,31 @@ const TaskManagement = () => {
     const hasSubCategory = selectedSubCategory || (isCustomSubCategory && customSubCategoryText.trim());
 
     if (!hasCategory || !hasSubCategory || !taskAction.trim()) {
-      toast.warning("Please fill all mandatory fields (Category, Sub-Category, and Instruction)");
+      reactToast.warning("Please fill all mandatory fields (Category, Sub-Category, and Instruction)");
       return;
     }
 
     try {
       const finalCatId = await createCustomCategory();
       if (isCustomCategory && !finalCatId) {
-        toast.error("Failed to save custom category");
+        reactToast.error("Failed to save custom category");
         return;
       }
 
       const finalSubCatId = await createCustomSubCategory(finalCatId);
       if (isCustomSubCategory && !finalSubCatId) {
-        toast.error("Failed to save custom sub-category");
+        reactToast.error("Failed to save custom sub-category");
         return;
       }
 
       const finalCompId = await createCustomCompany(finalSubCatId);
       if (isCustomCompany && !finalCompId) {
-        toast.error("Failed to save custom company");
+        reactToast.error("Failed to save custom company");
         return;
       }
 
       if (Number(finalCatId) === 1 && !motorRto.trim()) {
-        toast.warning("Please enter the RTO Number");
+        reactToast.warning("Please enter the RTO Number");
         return;
       }
 
@@ -676,23 +714,23 @@ const TaskManagement = () => {
       const response = await CallApi(`/api/tasks/${selectedTaskData?.id}`, "PUT", updatedPayload);
 
       if (response.status) {
-        toast.success("Task updated successfully!");
+        reactToast.success("Task updated successfully!");
         setIsEditModalOpen(false);
         setSelectedTaskData(null);
         resetForm();
         fetchTasksLog();
       } else {
-        toast.error(response.message || "Failed to update task");
+        reactToast.error(response.message || "Failed to update task");
       }
     } catch (error) {
-      toast.error("Something went wrong while updating task");
+      reactToast.error("Something went wrong while updating task");
     }
   };
 
   const handleReassignSubmit = async (e) => {
     e.preventDefault();
     if (!assignTo) {
-      toast.warning("Please select an employee to reassign");
+      reactToast.warning("Please select an employee to reassign");
       return;
     }
 
@@ -709,16 +747,16 @@ const TaskManagement = () => {
       );
 
       if (response.status) {
-        toast.success("Task reassigned successfully!");
+        reactToast.success("Task reassigned successfully!");
         setIsReassignModalOpen(false);
         setSelectedTaskData(null);
         resetForm();
         fetchTasksLog();
       } else {
-        toast.error(response.message || "Failed to reassign task");
+        reactToast.error(response.message || "Failed to reassign task");
       }
     } catch (error) {
-      toast.error("Something went wrong while reassigning task");
+      reactToast.error("Something went wrong while reassigning task");
     } finally {
       setIsReassigning(false);
     }
@@ -729,8 +767,6 @@ const TaskManagement = () => {
       setExportLoading(true);
 
       const params = new URLSearchParams();
-
-      // Select dropdown parameters ke mutabik Excel report me dynamic keys map hongi
       appendDynamicSearchParam(params);
 
       if (filterStatus) params.append("status", filterStatus);
@@ -762,10 +798,10 @@ const TaskManagement = () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast.success("Excel sheet downloaded successfully!");
+      reactToast.success("Excel sheet downloaded successfully!");
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Failed to download Excel file");
+      reactToast.error("Failed to download Excel file");
     } finally {
       setExportLoading(false);
     }
@@ -807,69 +843,68 @@ const TaskManagement = () => {
         </div>
       </div>
 
-      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-end gap-4 w-full">
-        {/* Dynamic Filter Section */}
-        <div className="w-full xl:flex-1 flex flex-col sm:flex-row gap-3">
-          {/* Dropdown Criteria Selection */}
-          <div className="w-full sm:w-1/3 flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Search Field
-            </label>
-            <div className="relative w-full">
-              <select
-                value={searchType}
-                onChange={(e) => {
-                  setSearchType(e.target.value);
-                  setSearchTerm("");
-                }}
-                className="w-full h-11 pl-3 pr-9 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 focus:border-[#00a896] focus:bg-white outline-none transition appearance-none cursor-pointer"
-              >
-                <option value="all_fields">Search All Fields</option>
-                <option value="employee">Assigned Employee</option>
-                <option value="insurance">Insurance</option>
-                <option value="clientName">Client Name</option>
-                <option value="clientContact">Client Contact</option>
-                <option value="regNo">Reg No.</option>
-              </select>
-              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
-                <FiChevronDown size={14} />
-              </div>
-            </div>
-          </div>
-
-          {/* Search Term Input Field */}
-          <div className="w-full sm:flex-1 flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Search Term
-            </label>
-            <div className="relative w-full">
-              <FiSearch
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                size={16}
-              />
-              <input
-                type="text"
-                placeholder={
-                  searchType === "all_fields" ? "Search Client, Employee, Mobile..." :
-                    searchType === "employee" ? "Search Assigned Employee..." :
-                      searchType === "insurance" ? "Search Insurance (Category/Sub-Category)..." :
-                        searchType === "clientName" ? "Search Client Name..." :
-                          searchType === "clientContact" ? "Search Client Contact..." :
-                            "Search Registration (RTO) Number..."
-                }
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearchButtonClick();
-                }}
-                className="w-full h-11 pl-10 pr-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#00a896] focus:bg-white outline-none transition"
-              />
+      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-4 w-full items-end relative">
+        <div className="xl:col-span-3 flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Search Field
+          </label>
+          <div className="relative w-full">
+            <select
+              value={searchType}
+              onChange={(e) => {
+                setSearchType(e.target.value);
+                setSearchTerm("");
+              }}
+              className="w-full h-11 pl-3 pr-9 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 focus:border-[#00a896] focus:bg-white outline-none transition appearance-none cursor-pointer"
+            >
+              <option value="all_fields">Search All Fields</option>
+              <option value="employee">Assigned Employee</option>
+              <option value="insurance">Insurance</option>
+              <option value="clientName">Client Name</option>
+              <option value="clientContact">Client Contact</option>
+              <option value="regNo">Reg No.</option>
+            </select>
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+              <FiChevronDown size={14} />
             </div>
           </div>
         </div>
 
-        {/* 2. Lead Date Input with Label */}
-        <div className="w-full xl:w-44 flex flex-col gap-1.5">
+        <div className="xl:col-span-3 flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Search Term
+          </label>
+          <div className="relative w-full">
+            <FiSearch
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              size={16}
+            />
+            <input
+              type="text"
+              placeholder={
+                searchType === "all_fields"
+                  ? "Search Client, Employee, Mobile..."
+                  : searchType === "employee"
+                  ? "Search Assigned Employee..."
+                  : searchType === "insurance"
+                  ? "Search Insurance (Category/Sub-Category)..."
+                  : searchType === "clientName"
+                  ? "Search Client Name..."
+                  : searchType === "clientContact"
+                  ? "Search Client Contact..."
+                  : "Search Registration (RTO) Number..."
+              }
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearchButtonClick();
+              }}
+              className="w-full h-11 pl-10 pr-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium focus:border-[#00a896] focus:bg-white outline-none transition"
+            />
+          </div>
+        </div>
+
+        <div className="xl:col-span-2 flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Lead Date
           </label>
@@ -881,8 +916,7 @@ const TaskManagement = () => {
           />
         </div>
 
-        {/* 3. Follow Up Date (toDate) Input with Label */}
-        <div className="w-full xl:w-44 flex flex-col gap-1.5">
+        <div className="xl:col-span-2 flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Follow Up Date
           </label>
@@ -894,8 +928,7 @@ const TaskManagement = () => {
           />
         </div>
 
-        {/* 4. Status Dropdown with Label */}
-        <div className="w-full xl:w-44 flex flex-col gap-1.5">
+        <div className="xl:col-span-2 flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Task Status
           </label>
@@ -919,13 +952,12 @@ const TaskManagement = () => {
           </div>
         </div>
 
-        {/* 5. Action Buttons (Search & Clear) */}
-        <div className="flex items-center gap-3 w-full xl:w-auto shrink-0 pb-0.5">
+        <div className="xl:col-span-12 flex items-center justify-end gap-3 mt-2 xl:mt-0 pt-2 border-t border-slate-100 xl:border-t-0 xl:pt-0">
           <button
             type="button"
             disabled={searchApiLoading}
             onClick={handleSearchButtonClick}
-            className="flex-1 xl:flex-none h-11 px-6 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-400 text-white text-sm font-bold rounded-xl transition shadow-sm cursor-pointer flex items-center justify-center gap-2"
+            className="h-11 px-6 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-400 text-white text-sm font-bold rounded-xl transition shadow-sm cursor-pointer flex items-center justify-center gap-2"
           >
             <FiFilter size={15} />
             {searchApiLoading ? "Searching..." : "Search"}
@@ -933,8 +965,9 @@ const TaskManagement = () => {
 
           {(filterStatus || filterLeadDate || filterFollowUpDate || searchTerm) && (
             <button
+              type="button"
               onClick={clearAllFilters}
-              className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-2 transition cursor-pointer whitespace-nowrap mb-1"
+              className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-2 transition cursor-pointer whitespace-nowrap"
             >
               Clear Filters
             </button>
@@ -1064,6 +1097,8 @@ const TaskManagement = () => {
                           title="View Task"
                           onClick={() => {
                             setSelectedTaskData(task);
+                            setViewActiveTab("details");
+                            setTaskLogs([]);
                             setIsViewModalOpen(true);
                           }}
                           className="p-1.5 text-slate-500 hover:text-[#00a896] hover:bg-slate-50 rounded-lg transition cursor-pointer"
@@ -1087,15 +1122,15 @@ const TaskManagement = () => {
                             setFollowUpDate(task.followUpDate ? task.followUpDate.split("T")[0] : "");
                             setRenewalDate(task.renewalDate ? task.renewalDate.split("T")[0] : "");
                             setMotorRto(task.registrationNumber || "");
-                              setRegDate(
-                                task.registration_date 
-                                  ? task.registration_date.split("T")[0] 
-                                  : task.registrationDate 
-                                  ? task.registrationDate.split("T")[0] 
-                                  : task.regDate 
-                                  ? task.regDate.split("T")[0] 
-                                  : ""
-                              );
+                            setRegDate(
+                              task.registration_date 
+                                ? task.registration_date.split("T")[0] 
+                                : task.registrationDate 
+                                ? task.registrationDate.split("T")[0] 
+                                : task.regDate 
+                                ? task.regDate.split("T")[0] 
+                                : ""
+                            );
                             setHealthType(task.insuranceType || "new_business");
                             setAssignTo(task.assignTo || "");
 
@@ -1913,118 +1948,272 @@ const TaskManagement = () => {
         )}
       </Modal>
 
-      {/* ================= VIEW TASK MODAL ================= */}
+      {/* ================= VIEW TASK MODAL (API DYNAMIC LOGS INTEGRATED) ================= */}
       <Modal
         isOpen={isViewModalOpen}
         onClose={() => {
           setIsViewModalOpen(false);
           setSelectedTaskData(null);
+          setViewActiveTab("details");
+          setTaskLogs([]);
         }}
-        title="Task Details"
+        title={`Task Details`}
         widthClass="sm:w-[700px]"
       >
         {selectedTaskData && (
           <div className="space-y-5">
-
-            <div className="overflow-hidden rounded-xl border border-slate-200">
-              <table className="w-full border-collapse text-sm">
-                <tbody>
-
-                  <tr className="border-b border-slate-200">
-                    <th className="w-52 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
-                      Client Name
-                    </th>
-                    <td className="px-4 py-3 text-slate-800 font-medium">
-                      {selectedTaskData.clientName || "—"}
-                    </td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
-                      Contact Number
-                    </th>
-                    <td className="px-4 py-3 text-slate-800">
-                      {selectedTaskData.clientSecretNumber ||
-                        selectedTaskData.clientContactNumber ||
-                        "—"}
-                    </td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
-                      Insurance Category
-                    </th>
-                    <td className="px-4 py-3 text-slate-800">
-                      {selectedTaskData.insuranceCategory?.name || "—"}
-                    </td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
-                      Status
-                    </th>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold
-                  ${selectedTaskData.status === "Completed"
-                            ? "bg-green-100 text-green-700"
-                            : selectedTaskData.status === "Pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : selectedTaskData.status === "Rejected"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-slate-100 text-slate-700"
-                          }`}
-                      >
-                        {selectedTaskData.status || "N/A"}
-                      </span>
-                    </td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
-                      Assigned Employee
-                    </th>
-                    <td className="px-4 py-3 text-slate-800 font-medium">
-                      {selectedTaskData.assignToUser?.name || "Unassigned"}
-                    </td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <th className="bg-slate-50 px-4 py-3 align-top text-left font-semibold text-slate-600">
-                      Task Instruction
-                    </th>
-                    <td className="px-4 py-3 whitespace-pre-line text-slate-700 leading-6">
-                      {selectedTaskData.taskAction ||
-                        "No instructions provided."}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <th className="bg-slate-50 px-4 py-3 align-top text-left font-semibold text-slate-600">
-                      Employee Flow Comment
-                    </th>
-                    <td className="px-4 py-3 whitespace-pre-line text-slate-700 leading-6">
-                      {selectedTaskData.flowComment ||
-                        "No employee comment available."}
-                    </td>
-                  </tr>
-
-                </tbody>
-              </table>
+            {/* Tab Navigation Controls */}
+            <div className="flex border-b border-slate-200">
+              <button
+                type="button"
+                onClick={() => handleTabClick("details")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer ${
+                  viewActiveTab === "details"
+                    ? "border-[#00a896] text-[#00a896]"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <FiInfo size={14} /> Task Details
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabClick("history")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer ${
+                  viewActiveTab === "history"
+                    ? "border-[#00a896] text-[#00a896]"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <FiClock size={14} /> History & Activity Log
+              </button>
             </div>
 
-            <div className="flex justify-end">
+           
+            {viewActiveTab === "details" && (
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <table className="w-full border-collapse text-sm">
+                  <tbody>
+                    <tr className="border-b border-slate-200">
+                      <th className="w-52 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
+                        Client Name
+                      </th>
+                      <td className="px-4 py-3 text-slate-800 font-medium">
+                        {selectedTaskData.clientName || "—"}
+                      </td>
+                    </tr>
+
+                    <tr className="border-b border-slate-200">
+                      <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
+                        Contact Number
+                      </th>
+                      <td className="px-4 py-3 text-slate-800">
+                        {selectedTaskData.clientSecretNumber ||
+                          selectedTaskData.clientContactNumber ||
+                          "—"}
+                      </td>
+                    </tr>
+
+                    <tr className="border-b border-slate-200">
+                      <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
+                        Insurance Category
+                      </th>
+                      <td className="px-4 py-3 text-slate-800">
+                        {selectedTaskData.insuranceCategory?.name || "—"}
+                      </td>
+                    </tr>
+
+                    <tr className="border-b border-slate-200">
+                      <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
+                        Status
+                      </th>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            selectedTaskData.status === "completed" || selectedTaskData.status === "Completed"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : selectedTaskData.status === "pending" || selectedTaskData.status === "Pending"
+                              ? "bg-amber-100 text-amber-700"
+                              : selectedTaskData.status === "Rejected"
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {selectedTaskData.status
+                            ? selectedTaskData.status
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (char) => char.toUpperCase())
+                            : "N/A"}
+                        </span>
+                      </td>
+                    </tr>
+
+                    <tr className="border-b border-slate-200">
+                      <th className="bg-slate-50 px-4 py-3 text-left font-semibold text-slate-600">
+                        Assigned Employee
+                      </th>
+                      <td className="px-4 py-3 text-slate-800 font-medium">
+                        {selectedTaskData.assignToUser?.name || "Unassigned"}
+                      </td>
+                    </tr>
+
+                    <tr className="border-b border-slate-200">
+                      <th className="bg-slate-50 px-4 py-3 align-top text-left font-semibold text-slate-600">
+                        Task Instruction
+                      </th>
+                      <td className="px-4 py-3 whitespace-pre-line text-slate-700 leading-6">
+                        {selectedTaskData.taskAction ||
+                          "No instructions provided."}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <th className="bg-slate-50 px-4 py-3 align-top text-left font-semibold text-slate-600">
+                        Employee Flow Comment
+                      </th>
+                      <td className="px-4 py-3 whitespace-pre-line text-slate-700 leading-6">
+                        {selectedTaskData.flowComment ||
+                          "No employee comment available."}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {viewActiveTab === "history" && (
+              <div className="bg-slate-50/60 border border-slate-200/80 rounded-2xl p-5 transition-all">
+                
+                {/* Header Section */}
+                <div className="flex items-center justify-between pb-3.5 mb-5 border-b border-slate-200/80">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#00a896]/10 text-[#00a896] flex items-center justify-center font-bold shadow-xs">
+                      <FiClock size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-800 tracking-tight">
+                        Task Journey Log
+                      </h4>
+                      <p className="text-[11px] text-slate-400 font-medium">
+                        Task #{selectedTaskData.id} timeline
+                      </p>
+                    </div>
+                  </div>
+
+                  {taskLogs && taskLogs.length > 0 && (
+                    <span className="text-[10px] font-bold text-[#00a896] bg-[#00a896]/10 px-3 py-1 rounded-full uppercase tracking-wider">
+                      {taskLogs.length} Logs
+                    </span>
+                  )}
+                </div>
+
+                {/* Content Area */}
+                {logsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+                    <div className="w-5 h-5 border-2 border-[#00a896] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs font-semibold">Loading log timeline...</span>
+                  </div>
+                ) : taskLogs && taskLogs.length > 0 ? (
+                  <div className="relative pl-5 space-y-3.5 before:absolute before:left-2 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200/90">
+                    {taskLogs.map((log, index) => {
+                      const formattedDate = log.createdAt
+                        ? new Date(log.createdAt).toLocaleString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })
+                        : "—";
+
+                      const isLatest = index === 0;
+
+                      return (
+                        <div key={log.id || index} className="relative group">
+                          {/* Timeline Bullet Ring */}
+                          <div
+                            className={`absolute -left-[21px] top-3.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs transition-all ${
+                              isLatest
+                                ? "bg-[#00a896] ring-4 ring-[#00a896]/15 scale-110"
+                                : "bg-slate-300 group-hover:bg-slate-400"
+                            }`}
+                          />
+
+                          {/* Compact Micro-Card */}
+                          <div className="bg-white border border-slate-200/90 rounded-xl p-3 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200">
+                            
+                            {/* Top Row: Status Badges & Time */}
+                            <div className="flex items-center justify-between gap-2">
+                              
+                              {/* Status Pills */}
+                              <div className="flex items-center gap-1.5 text-xs font-bold">
+                                {log.oldStatus && (
+                                  <>
+                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold uppercase tracking-wide">
+                                      {log.oldStatus.replace(/_/g, " ")}
+                                    </span>
+                                    <span className="text-slate-300 text-[10px]">➔</span>
+                                  </>
+                                )}
+                                <span className="px-2 py-0.5 bg-teal-50 text-[#00a896] border border-teal-100/80 rounded-md text-[10px] font-bold uppercase tracking-wide">
+                                  {log.newStatus ? log.newStatus.replace(/_/g, " ") : "Updated"}
+                                </span>
+                              </div>
+
+                              {/* Timestamp */}
+                              <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                                {formattedDate}
+                              </span>
+                            </div>
+
+                            {/* Bottom Row: User Info & Remarks */}
+                            <div className="mt-2 flex items-center justify-between flex-wrap gap-2 text-[11px]">
+                              <div className="flex items-center gap-1.5 text-slate-500">
+                                <span>By</span>
+                                <span className="font-bold text-slate-800">
+                                  {log.user?.name || "System"}
+                                </span>
+                                {log.user?.role && (
+                                  <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded uppercase">
+                                    {log.user.role}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Remarks Block (Clean Compact Bubble) */}
+                            {log.remarks && (
+                              <div className="mt-2 text-[11px] text-slate-600 bg-slate-50/80 rounded-lg p-2 border-l-2 border-[#00a896] leading-relaxed">
+                                <span className="font-semibold text-slate-800">Remarks: </span>
+                                {log.remarks}
+                              </div>
+                            )}
+
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-slate-400 font-medium text-xs">
+                    No activity logs found for this task.
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end pt-2">
               <button
                 onClick={() => {
                   setIsViewModalOpen(false);
                   setSelectedTaskData(null);
+                  setViewActiveTab("details");
+                  setTaskLogs([]);
                 }}
-                className="rounded-lg bg-slate-800 px-5 py-2 text-white transition hover:bg-slate-900"
+                className="rounded-lg bg-slate-800 px-5 py-2 text-white transition hover:bg-slate-900 cursor-pointer"
               >
                 Close
               </button>
             </div>
-
           </div>
         )}
       </Modal>

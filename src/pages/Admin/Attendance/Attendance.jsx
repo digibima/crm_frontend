@@ -34,6 +34,11 @@ const AttendanceTracker = () => {
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
 
+  // Deep Ledger Filtered State & Summary
+  const [filteredLogs, setFilteredLogs] = useState([]);
+  const [filteredSummary, setFilteredSummary] = useState(null);
+  const [filteredLoading, setFilteredLoading] = useState(false);
+
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -53,13 +58,19 @@ const AttendanceTracker = () => {
     sundays: [],
   });
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const entriesPerPage = 5;
+  // Client-Side Pagination States
+  const [ledgerCurrentPage, setLedgerCurrentPage] = useState(1);
+  const ledgerEntriesPerPage = 5;
+
+  const [timelineCurrentPage, setTimelineCurrentPage] = useState(1);
+  const timelineEntriesPerPage = 5;
+
   const navigate = useNavigate();
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
+    setLedgerCurrentPage(1);
+    setTimelineCurrentPage(1);
+  }, [activeTab, inspectEmpId, selectedMonth, selectedYear, selectedDate]);
 
   // ================= FETCH CALENDAR OVERVIEW API =================
   const fetchCalendarOverview = async (month, year) => {
@@ -90,7 +101,7 @@ const AttendanceTracker = () => {
         setDashboardData(response.data);
 
         if (response.data.employeeMonthlySummary?.length > 0) {
-          setInspectEmpId(response.data.employeeMonthlySummary[0].employee?.id);
+          setInspectEmpId((prev) => prev || response.data.employeeMonthlySummary[0].employee?.id);
         }
       }
     } catch (err) {
@@ -98,6 +109,42 @@ const AttendanceTracker = () => {
       toast.error("Failed to load live server metrics.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ================= FETCH FILTERED DEEP LEDGER DATA =================
+  const fetchFilteredAttendance = async () => {
+    try {
+      setFilteredLoading(true);
+
+      const currentEmp = employeeSummary.find(
+        (item) => String(item.employee.id) === String(inspectEmpId)
+      );
+      const searchVal = currentEmp?.employee?.name || inspectEmpId || "";
+
+      let apiUrl = `/api/admin/attendance/filter?month=${selectedMonth}&year=${selectedYear}`;
+      if (searchVal) {
+        apiUrl += `&search=${encodeURIComponent(searchVal)}`;
+      }
+
+      const response = await CallApi(apiUrl, "GET");
+
+      if (response && response.status && response.data) {
+        // Handle new nested response format (response.data.data -> array)
+        const logsList = response.data.data || response.data.attendanceList?.data || response.data || [];
+        setFilteredLogs(Array.isArray(logsList) ? logsList : []);
+        setFilteredSummary(response.data.summary || null);
+      } else {
+        setFilteredLogs([]);
+        setFilteredSummary(null);
+      }
+    } catch (err) {
+      console.error("Filtered Attendance API execution error:", err);
+      toast.error("Failed to fetch filtered attendance ledger.");
+      setFilteredLogs([]);
+      setFilteredSummary(null);
+    } finally {
+      setFilteredLoading(false);
     }
   };
 
@@ -137,6 +184,13 @@ const AttendanceTracker = () => {
     fetchAttendanceRequests();
   }, []);
 
+  // TRIGGER FILTER API WHEN EMP, MONTH OR YEAR CHANGES
+  useEffect(() => {
+    if (selectedMonth && selectedYear) {
+      fetchFilteredAttendance();
+    }
+  }, [inspectEmpId, selectedMonth, selectedYear]);
+
   // CALENDAR API TRIGGER ON MONTH / YEAR CHANGE
   useEffect(() => {
     fetchCalendarOverview(selectedMonth, selectedYear);
@@ -160,11 +214,22 @@ const AttendanceTracker = () => {
   const employeeSummary = dashboardData?.employeeMonthlySummary || [];
   const pendingRequests = dashboardData?.pendingRequests?.list || [];
 
-  const indexOfLastRow = currentPage * entriesPerPage;
-  const indexOfFirstRow = indexOfLastRow - entriesPerPage;
+  // Data Filtering for Ledger
+  const displayLogs = filteredLogs.filter(
+    (log) => !selectedDate || log.attendanceDate === selectedDate
+  );
 
-  const currentAttendanceRows = attendanceLog.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(attendanceLog.length / entriesPerPage);
+  // Client-Side Pagination Calculations for Deep Ledger
+  const ledgerIndexOfLastRow = ledgerCurrentPage * ledgerEntriesPerPage;
+  const ledgerIndexOfFirstRow = ledgerIndexOfLastRow - ledgerEntriesPerPage;
+  const currentLedgerRows = displayLogs.slice(ledgerIndexOfFirstRow, ledgerIndexOfLastRow);
+  const ledgerTotalPages = Math.ceil(displayLogs.length / ledgerEntriesPerPage) || 1;
+
+  // Client-Side Pagination Calculations for Timeline Feed
+  const timelineIndexOfLastRow = timelineCurrentPage * timelineEntriesPerPage;
+  const timelineIndexOfFirstRow = timelineIndexOfLastRow - timelineEntriesPerPage;
+  const currentTimelineRows = attendanceLog.slice(timelineIndexOfFirstRow, timelineIndexOfLastRow);
+  const timelineTotalPages = Math.ceil(attendanceLog.length / timelineEntriesPerPage) || 1;
 
   // ================= DYNAMIC CALENDAR GENERATION LOGIC =================
   const generateCalendarDays = () => {
@@ -260,17 +325,30 @@ const AttendanceTracker = () => {
     return date.toLocaleString("en-US", { month: "long", year: "numeric" });
   };
 
-  const formatIsoTime = (isoString) => {
-    if (!isoString) return "—";
+  const formatIsoTime = (timeVal) => {
+    if (!timeVal) return "—";
+
+    // Handle plain HH:mm or HH:mm:ss strings
+    if (typeof timeVal === "string" && timeVal.includes(":") && !timeVal.includes("T")) {
+      const parts = timeVal.split(":");
+      let hours = parseInt(parts[0], 10);
+      const minutes = parts[1];
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+    }
+
+    // Handle ISO Datetime string
     try {
-      const dateObj = new Date(isoString);
+      const dateObj = new Date(timeVal);
+      if (isNaN(dateObj.getTime())) return timeVal;
       return dateObj.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
       });
     } catch (e) {
-      return "—";
+      return timeVal || "—";
     }
   };
 
@@ -313,6 +391,9 @@ const AttendanceTracker = () => {
 
   const formatTimeForInput = (isoString) => {
     if (!isoString) return "";
+    if (typeof isoString === "string" && isoString.includes(":") && !isoString.includes("T")) {
+      return isoString.substring(0, 5);
+    }
     try {
       const dateObj = new Date(isoString);
       if (isNaN(dateObj.getTime())) throw new Error();
@@ -416,35 +497,28 @@ const AttendanceTracker = () => {
 
   // ================= EXCEL DOWNLOAD =================
   const downloadExcelReport = () => {
-    const filteredData = attendanceLog.filter(
-      (log) =>
-        String(log.employeeId) === String(inspectEmpId) &&
-        (!selectedDate || log.attendanceDate === selectedDate)
-    );
-
-    if (filteredData.length === 0) {
+    if (displayLogs.length === 0) {
       toast.info("No Record Found");
       return;
     }
 
-    const excelRows = filteredData.map((record) => ({
+    const excelRows = displayLogs.map((record) => ({
       "Employee Name":
-        record.employee?.name || `Employee #${record.employeeId}`,
-      Email: record.employee?.email || "—",
+        record.employeeName || record.employee?.name || `Employee #${record.employeeId}`,
+      Email: record.employeeEmail || record.employee?.email || "—",
       Date: formatDateToDDMMYYYY(record.attendanceDate),
       "Punch In Time": formatIsoTime(record.checkIn),
       "Punch Out Time": formatIsoTime(record.checkOut),
-      "Working Hours":
+      "Working Hours": record.workingHours || (
         record.workingMinutes !== undefined
           ? record.workingMinutes > 0
             ? `${Math.floor(record.workingMinutes / 60)}h ${record.workingMinutes % 60}m`
             : "00h 00m"
-          : "—",
+          : "—"
+      ),
       "IP Scope Address": record.checkInIp || "—",
       "Remarks Context": record.remarks || "No remarks",
       "Current Status": record.status || "Present",
-      "Created At": formatDateTime(record.createdAt),
-      "Updated At": formatDateTime(record.updatedAt),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(excelRows);
@@ -490,6 +564,7 @@ const AttendanceTracker = () => {
             onClick={() => {
               fetchAdminDashboardData();
               fetchAttendanceRequests();
+              fetchFilteredAttendance();
               fetchCalendarOverview(selectedMonth, selectedYear);
             }}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition-all shadow-sm"
@@ -594,7 +669,7 @@ const AttendanceTracker = () => {
                 <div className="absolute inset-0 rounded-full border-[12px] border-t-orange-500 border-r-amber-500 border-b-transparent border-l-transparent -m-[12px]"></div>
                 <div className="text-center">
                   <span className="text-xl font-bold block">
-                    {monthlyStats.totalRecords || 0}
+                    {filteredSummary?.totalRecords ?? monthlyStats.totalRecords ?? 0}
                   </span>
                   <span className="text-[10px] text-slate-400 font-medium">
                     Logs
@@ -606,28 +681,28 @@ const AttendanceTracker = () => {
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>{" "}
                   <span>Present</span>{" "}
                   <span className="text-slate-400 ml-auto">
-                    {monthlyStats.present}
+                    {filteredSummary?.present ?? monthlyStats.present}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>{" "}
                   <span>Late</span>{" "}
                   <span className="text-slate-400 ml-auto">
-                    {monthlyStats.late}
+                    {filteredSummary?.late ?? monthlyStats.late}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>{" "}
                   <span>Half Day</span>{" "}
                   <span className="text-slate-400 ml-auto">
-                    {monthlyStats.halfDay}
+                    {filteredSummary?.halfDay ?? monthlyStats.halfDay}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>{" "}
                   <span>Absent</span>{" "}
                   <span className="text-slate-400 ml-auto">
-                    {monthlyStats.absent}
+                    {filteredSummary?.absent ?? monthlyStats.absent}
                   </span>
                 </div>
               </div>
@@ -678,7 +753,6 @@ const AttendanceTracker = () => {
                       />
                     )}
 
-                    {/* ➕ HOVER TOOLTIP CODE HERE */}
                     {slot.isCurrentMonth && slot.fullDateStr && (
                       <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
                         <div className="bg-slate-900 text-white text-[10px] font-semibold rounded-lg px-2.5 py-1.5 shadow-xl whitespace-nowrap space-y-0.5 text-center border border-slate-700">
@@ -697,7 +771,6 @@ const AttendanceTracker = () => {
               })}
             </div>
 
-            {/* CALENDAR COLOR LEGENDS */}
             <div className="flex flex-wrap items-center justify-center gap-4 border-t pt-3 mt-3 text-[10px] font-medium text-slate-500">
               <div className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-[#00a896]"></span> Present
@@ -716,6 +789,7 @@ const AttendanceTracker = () => {
         </div>
       )}
 
+      {/* ================= MONTHLY EMPLOYEE DEEP LEDGER ================= */}
       {activeTab === "attendance" && (
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4 border-slate-100">
@@ -723,9 +797,16 @@ const AttendanceTracker = () => {
               <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
                 <FiActivity size={16} />
               </div>
-              <h3 className="font-bold text-slate-900 text-sm">
-                Monthly Employee Deep Ledger
-              </h3>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  Monthly Employee Deep Ledger
+                </h3>
+                {filteredSummary?.totalWorkingHours && (
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Total Hours Worked: <strong className="text-slate-700">{filteredSummary.totalWorkingHours} hrs</strong>
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
 
@@ -801,21 +882,28 @@ const AttendanceTracker = () => {
                   <th className="py-2.5 px-4">Date</th>
                   <th className="py-2.5 px-4">Punch In Time</th>
                   <th className="py-2.5 px-4">Punch Out Time</th>
-                  <th className="py-2.5 px-4">IP Scope Address</th>
+                  <th className="py-2.5 px-4">Working Hours</th>
                   <th className="py-2.5 px-4">Remarks Context</th>
                   <th className="py-2.5 px-4 text-center">Status</th>
                   <th className="py-2.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-600">
-                {attendanceLog
-                  .filter(
-                    (log) =>
-                      String(log.employeeId) === String(inspectEmpId) &&
-                      (!selectedDate || log.attendanceDate === selectedDate)
-                  )
-                  .map((record, index) => (
-                    <tr key={index} className="hover:bg-slate-50/50 transition">
+                {filteredLoading ? (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-slate-400 font-semibold">
+                      Loading Filtered Ledger Data...
+                    </td>
+                  </tr>
+                ) : displayLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-slate-400 font-medium italic">
+                      No matching records found in deep ledger.
+                    </td>
+                  </tr>
+                ) : (
+                  currentLedgerRows.map((record, index) => (
+                    <tr key={record.id || index} className="hover:bg-slate-50/50 transition">
                       <td className="py-2.5 px-4 font-bold text-slate-800">
                         {formatDateToDDMMYYYY(record.attendanceDate)}
                       </td>
@@ -825,8 +913,8 @@ const AttendanceTracker = () => {
                       <td className="py-2.5 px-4 text-slate-600">
                         {formatIsoTime(record.checkOut)}
                       </td>
-                      <td className="py-2.5 px-4 text-slate-400 text-[11px]">
-                        {record.checkInIp || "—"}
+                      <td className="py-2.5 px-4 text-slate-500 font-semibold">
+                        {record.workingHours || "—"}
                       </td>
                       <td className="py-2.5 px-4 text-slate-500 italic">
                         "{record.remarks || "No remarks"}"
@@ -860,13 +948,61 @@ const AttendanceTracker = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+
+          {/* CLIENT SIDE PAGINATION FOR DEEP LEDGER TABLE */}
+          {ledgerTotalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 pt-3 bg-white select-none">
+              <div className="text-xs text-slate-500">
+                Showing <span className="font-semibold">{ledgerIndexOfFirstRow + 1}</span> to{" "}
+                <span className="font-semibold">
+                  {ledgerIndexOfLastRow > displayLogs.length ? displayLogs.length : ledgerIndexOfLastRow}
+                </span>{" "}
+                of <span className="font-semibold">{displayLogs.length}</span> entries
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setLedgerCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={ledgerCurrentPage === 1}
+                  className="flex items-center justify-center p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FiChevronLeft size={16} />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {[...Array(ledgerTotalPages)].map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setLedgerCurrentPage(i + 1)}
+                      className={`w-7 h-7 flex items-center justify-center rounded text-xs font-semibold transition-colors ${ledgerCurrentPage === i + 1
+                          ? "bg-[#00a896] hover:bg-[#009282] text-white"
+                          : "text-slate-600 hover:bg-slate-50 border hover:border-slate-200"
+                        }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setLedgerCurrentPage((prev) => Math.min(prev + 1, ledgerTotalPages))}
+                  disabled={ledgerCurrentPage === ledgerTotalPages}
+                  className="flex items-center justify-center p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FiChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
+      {/* ================= TIMELINE / APPROVALS ROSTER FEED ================= */}
       <div className="w-full bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <h3 className="font-bold text-slate-800 text-sm capitalize">
@@ -893,7 +1029,7 @@ const AttendanceTracker = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-600">
-                  {currentAttendanceRows.map((row, idx) => (
+                  {currentTimelineRows.map((row, idx) => (
                     <tr
                       key={idx}
                       className="hover:bg-slate-50/40 transition-colors"
@@ -944,33 +1080,33 @@ const AttendanceTracker = () => {
               </table>
             </div>
 
-            {totalPages > 1 && (
+            {timelineTotalPages > 1 && (
               <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4 bg-white select-none">
                 <div className="text-xs text-slate-500">
-                  Showing <span className="font-semibold">{indexOfFirstRow + 1}</span> to{" "}
+                  Showing <span className="font-semibold">{timelineIndexOfFirstRow + 1}</span> to{" "}
                   <span className="font-semibold">
-                    {indexOfLastRow > attendanceLog.length ? attendanceLog.length : indexOfLastRow}
+                    {timelineIndexOfLastRow > attendanceLog.length ? attendanceLog.length : timelineIndexOfLastRow}
                   </span>{" "}
                   of <span className="font-semibold">{attendanceLog.length}</span> entries
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="flex items-center justify-center p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                    onClick={() => setTimelineCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={timelineCurrentPage === 1}
+                    className="flex items-center justify-center p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     <FiChevronLeft size={16} />
                   </button>
 
                   <div className="flex items-center gap-1">
-                    {[...Array(totalPages)].map((_, i) => (
+                    {[...Array(timelineTotalPages)].map((_, i) => (
                       <button
                         key={i}
-                        onClick={() => setCurrentPage(i + 1)}
-                        className={`w-7 h-7 flex items-center justify-center rounded text-xs font-semibold transition-colors ${currentPage === i + 1
-                          ? "bg-[#00a896] hover:bg-[#009282]  text-white"
-                          : "text-slate-600 hover:bg-slate-50 border  hover:border-slate-200"
+                        onClick={() => setTimelineCurrentPage(i + 1)}
+                        className={`w-7 h-7 flex items-center justify-center rounded text-xs font-semibold transition-colors ${timelineCurrentPage === i + 1
+                          ? "bg-[#00a896] hover:bg-[#009282] text-white"
+                          : "text-slate-600 hover:bg-slate-50 border hover:border-slate-200"
                           }`}
                       >
                         {i + 1}
@@ -979,9 +1115,9 @@ const AttendanceTracker = () => {
                   </div>
 
                   <button
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="flex items-center justify-center p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                    onClick={() => setTimelineCurrentPage((prev) => Math.min(prev + 1, timelineTotalPages))}
+                    disabled={timelineCurrentPage === timelineTotalPages}
+                    className="flex items-center justify-center p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     <FiChevronRight size={16} />
                   </button>
@@ -1512,23 +1648,10 @@ const AttendanceTracker = () => {
               </div>
               <div className="col-span-2">
                 <span className="text-slate-400 block mb-0.5">
-                  IP Scope Address
+                  Working Hours
                 </span>
-                <span className="text-slate-700 font-mono font-semibold bg-white px-2 py-1 border rounded inline-block">
-                  {viewRecord.checkInIp || "—"}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-slate-400 block mb-0.5">Created At</span>
-                <span className="text-slate-700 font-medium">
-                  {formatDateTime(viewRecord.createdAt)}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Updated At</span>
-                <span className="text-slate-700 font-medium">
-                  {formatDateTime(viewRecord.updatedAt)}
+                <span className="text-slate-700 font-semibold bg-white px-2 py-1 border rounded inline-block">
+                  {viewRecord.workingHours || "—"}
                 </span>
               </div>
             </div>
@@ -1574,6 +1697,7 @@ const AttendanceTracker = () => {
                   toast.success("Attendance ledger updated successfully!");
                   setEditRecord(null);
                   fetchAdminDashboardData();
+                  fetchFilteredAttendance();
                 } else {
                   toast.error(response?.message || "Failed to update record.");
                 }
@@ -1870,7 +1994,8 @@ const AttendanceTracker = () => {
               Cancel
             </button>
             <button
-               
+              type="submit"
+              className="px-4 py-2 bg-[#00a896] hover:bg-[#009282] text-white rounded-lg font-semibold shadow-sm transition cursor-pointer"
             >
               Execute Modifications
             </button>

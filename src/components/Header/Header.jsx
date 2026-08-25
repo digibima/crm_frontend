@@ -4,14 +4,13 @@ import { logout } from "../../utils/auth";
 import { useNotification } from "../../context/NotificationContext";
 import {
   FaBell,
-  FaEnvelope,
-  FaSearch,
   FaBars,
   FaUserCircle,
   FaChevronDown,
   FaSignOutAlt,
   FaTasks,
   FaCheckCircle,
+  FaCheckDouble,
 } from "react-icons/fa";
 import { FiCheckCircle, FiClock } from "react-icons/fi";
 import { motion } from "framer-motion";
@@ -47,7 +46,7 @@ const Header = ({ config, onMenuToggle, user }) => {
     return `${day}/${month}/${year} ${formattedHours}:${minutes} ${ampm}`;
   };
 
-const handleNotificationNavigation = (notification) => {
+  const handleNotificationNavigation = (notification) => {
     if (markAsRead && notification.id) {
       markAsRead(notification.id);
     } else {
@@ -65,6 +64,7 @@ const handleNotificationNavigation = (notification) => {
     }
     setShowNotifications(false);
   };
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -109,7 +109,7 @@ const handleNotificationNavigation = (notification) => {
         </div>,
         {
           position: "top-right",
-         autoClose: false,       
+          autoClose: false,       
           closeOnClick: true,
           draggable: true,
           icon: <div className="p-1.5 bg-violet-100 text-violet-600 rounded-xl"><FiCheckCircle size={20} /></div>,
@@ -122,10 +122,8 @@ const handleNotificationNavigation = (notification) => {
     lastNotificationCount.current = notifications.length;
   }, [notifications]);
 
-
   useEffect(() => {
     const handleClickOutside = (event) => {
-
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
       }
@@ -157,33 +155,18 @@ const handleNotificationNavigation = (notification) => {
         >
           <FaBars />
         </button>
-
- 
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4 pointer-events-auto">
         {config.right?.map((item, index) => {
           switch (item.type) {
-            // case "message":
-            //   return (
-            //     <button
-            //       key={index}
-            //       className="relative h-12 w-12 rounded-2xl bg-white text-[#bd59d4] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-md transition-all duration-300 flex items-center justify-center border border-white"
-            //     >
-            //       <FaEnvelope size={17} />
-            //       <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 rounded-full bg-[#0ea5e9] text-white text-[10px] font-bold flex items-center justify-center px-1 border-2 border-white shadow-sm">
-            //         10
-            //       </span>
-            //     </button>
-            //   );
-
             case "notification":
               return (
                 <div key={index} className="relative" ref={notificationRef}>
                   <button
                     onClick={() => {
+                      // Yahan se markAllAsRead() hata diya hai
                       setShowNotifications(!showNotifications);
-                      markAllAsRead(); 
                     }}
                     className="relative h-12 w-12 rounded-2xl bg-white text-[#bd59d4] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-md transition-all duration-300 flex items-center justify-center border border-white"
                   >
@@ -219,6 +202,23 @@ const handleNotificationNavigation = (notification) => {
 
                   {showNotifications && (
                     <div className="absolute right-0 top-14 w-80 bg-white rounded-xl shadow-xl border z-50 max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                      
+                      {/* Top Header: Notifications Title + Mark All Read Option */}
+                      <div className="sticky top-0 z-10 bg-slate-50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700 tracking-wide uppercase">
+                          Notifications ({unreadCount})
+                        </span>
+                        {unreadNotificationsList.length > 0 && (
+                          <button
+                            onClick={() => markAllAsRead()}
+                            className="flex items-center gap-1 text-[12px] font-semibold text-violet-600 hover:text-violet-800 cursor-pointer transition-colors"
+                          >
+                            <FaCheckDouble className="text-[11px]" />
+                            Mark all as read
+                          </button>
+                        )}
+                      </div>
+
                       {unreadNotificationsList.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-10 px-6">
                           <FaBell className="text-5xl text-slate-300 mb-3" />

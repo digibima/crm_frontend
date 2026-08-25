@@ -4,7 +4,7 @@ const constant = {
   COOKIE: {
     HEADER: "@#$%^AZ##",
   },
-  BASE_URL: "http://192.168.29.182:3333/",
+  BASE_URL: "http://192.168.29.176:3333/",
   SERVERIMG_URL: "https://api.digibima.in/public/front/logo",
   API: {
     EMPLOYEELIST: "/api/employees/list",

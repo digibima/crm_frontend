@@ -136,11 +136,16 @@ useEffect(() => {
     return subCatObj?.name?.toLowerCase().includes("renewal") || false;
   };
 
-  const handleSearchButtonClick = async () => {
+const handleSearchButtonClick = async (overridePage = null) => {
     try {
       setSearchApiLoading(true);
       setLoading(true);
       setError(null);
+
+      const pageToFetch = overridePage !== null ? overridePage : 1;
+      if (overridePage === null) {
+        setCurrentPage(1);
+      }
 
       const baseSearchUrl = constant.API.EMPLOYEE.SEARCHTASK || "/api/tasks/search";
 
@@ -150,7 +155,7 @@ useEffect(() => {
       if (filterToDate) params.append("toDate", filterToDate);
       if (filterStatus) params.append("status", filterStatus);
 
-      params.append("page", currentPage);
+      params.append("page", pageToFetch);
       params.append("perPage", itemsPerPage);
       if (activeTab !== "All") params.append("category", activeTab);
 
@@ -181,9 +186,9 @@ useEffect(() => {
     }
   };
 
-  const fetchTasks = async () => {
+const fetchTasks = async () => {
     if (searchTerm.trim() || filterStatus || filterFromDate || filterToDate) {
-      handleSearchButtonClick();
+      handleSearchButtonClick(currentPage);
       return;
     }
 

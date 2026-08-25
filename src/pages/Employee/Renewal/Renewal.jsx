@@ -119,7 +119,7 @@ const RenewalManagement = () => {
     e.preventDefault();
     try {
       setIsUpdating(true);
-      const apiUrl = `/api/employee/tasks/renewal/${editFormData.id}`;
+      const apiUrl = `/api/tasks/renewal/${editFormData.id}`;
       const payload = {
         status: editFormData.status,
         taskAction: editFormData.taskAction
