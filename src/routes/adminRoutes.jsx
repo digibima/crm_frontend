@@ -9,7 +9,7 @@ import Renewal from "../pages/Admin/Renewal/Renewal";
 import Attendance from "../pages/Admin/Attendance/Attendance";
 import ManageHolidays from "../pages/Admin/ManageHolidays/ManageHolidays";
 import Salary from "../pages/Admin/Salary/Salary";
-// import WhatsApp from "../pages/Admin/WhatsApp/WhatsApp";
+import ActivityLog from "../pages/Admin/ActivityLog/ActivityLog";
 import Reports from "../pages/Admin/Reports/Reports";
 import Profile from "../pages/Admin/Profile/profile";
 
@@ -27,7 +27,7 @@ const AdminRoutes = () => {
         <Route path="attendance" element={<Attendance />} />
         <Route path="manageholidays" element={<ManageHolidays />} />
         <Route path="salary" element={<Salary />} />
-        {/* <Route path="whatsapp" element={<WhatsApp />} /> */}
+        <Route path="activitylog" element={<ActivityLog />} />
         <Route path="reports" element={<Reports />} />
         <Route path="profile" element={<Profile />} />
       </Route>

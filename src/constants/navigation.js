@@ -13,7 +13,8 @@ import {
   FaUserTie,
   FaFileInvoice,
   FaUserCircle,
-  FaSyncAlt
+  FaSyncAlt,
+  FaHistory 
 } from "react-icons/fa";
 
 const navigation = {
@@ -34,11 +35,11 @@ const navigation = {
         path: "/admin/task-management",
         icon: FaTasks,
       },
-{
-  title: "Renewal",
-  path: "/admin/renewal",
-  icon: FaSyncAlt, 
-},
+      {
+        title: "Renewal",
+        path: "/admin/renewal",
+        icon: FaSyncAlt, 
+      },
       {
         title: "Attendance",
         path: "/admin/attendance",
@@ -49,21 +50,21 @@ const navigation = {
         path: "/admin/salary",
         icon: FaMoneyBillWave,
       },
-      // {
-      //   title: "WhatsApp",
-      //   path: "/admin/whatsapp",
-      //   icon: FaWhatsapp,
-      // },
       {
         title: "Reports",
         path: "/admin/reports",
         icon: FaChartBar,
       },
-   {
-  title: "Profile",
-  path: "/admin/profile",
-  icon: FaUserCircle,
-}
+      {
+      title: "Activity Log",
+      path: "/admin/activitylog",
+      icon: FaHistory,
+    },
+      {
+      title: "Profile",
+      path: "/admin/profile",
+      icon: FaUserCircle,
+    }
     ],
 
      header: {

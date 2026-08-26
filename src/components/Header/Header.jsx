@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../../utils/auth";
 import { useNotification } from "../../context/NotificationContext";
+import RELEASE_NOTES from "../../constants/releaseNotes";
+import Modal from "../../components/Modal";
 import {
   FaBell,
   FaBars,
@@ -18,9 +20,11 @@ import { toast } from "react-toastify";
 
 const Header = ({ config, onMenuToggle, user }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  const { unreadCount, notifications, markAllAsRead, markAsRead } = useNotification();
+  const [showVersionModal, setShowVersionModal] = useState(false);
+  const { unreadCount, notifications, markAllAsRead, markAsRead } =
+    useNotification();
   const [showNotifications, setShowNotifications] = useState(false);
-  
+
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
 
@@ -32,16 +36,16 @@ const Header = ({ config, onMenuToggle, user }) => {
     if (!timestamp) return "—";
     const dateObj = new Date(timestamp);
 
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0'); 
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
     const year = dateObj.getFullYear();
 
     let hours = dateObj.getHours();
-    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const minutes = String(dateObj.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12;
-    hours = hours ? hours : 12; 
-    const formattedHours = String(hours).padStart(2, '0');
+    hours = hours ? hours : 12;
+    const formattedHours = String(hours).padStart(2, "0");
 
     return `${day}/${month}/${year} ${formattedHours}:${minutes} ${ampm}`;
   };
@@ -50,14 +54,14 @@ const Header = ({ config, onMenuToggle, user }) => {
     if (markAsRead && notification.id) {
       markAsRead(notification.id);
     } else {
-      notification.read = true; 
+      notification.read = true;
     }
 
     const targetTaskId = notification.taskid || notification.taskId;
 
     if (targetTaskId) {
-      navigate("/employee/task", { 
-        state: { taskId: targetTaskId, timestamp: Date.now() } 
+      navigate("/employee/task", {
+        state: { taskId: targetTaskId, timestamp: Date.now() },
       });
     } else {
       navigate("/employee/task");
@@ -73,15 +77,16 @@ const Header = ({ config, onMenuToggle, user }) => {
 
     if (notifications.length > lastNotificationCount.current) {
       const latest = notifications[0];
-      const toastText = latest.message && latest.message.trim() !== ""
-        ? latest.message
-        : latest.title;
+      const toastText =
+        latest.message && latest.message.trim() !== ""
+          ? latest.message
+          : latest.title;
 
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (AudioContext) {
           const ctx = new AudioContext();
-          if (ctx.state === 'suspended') ctx.resume();
+          if (ctx.state === "suspended") ctx.resume();
 
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -104,19 +109,28 @@ const Header = ({ config, onMenuToggle, user }) => {
 
       toast(
         <div className="flex flex-col gap-1 pr-2">
-          <p className="font-bold text-slate-800 text-[14px]">New Notification</p>
-          <p className="text-slate-600 text-[13px] font-medium leading-snug">{toastText}</p>
+          <p className="font-bold text-slate-800 text-[14px]">
+            New Notification
+          </p>
+          <p className="text-slate-600 text-[13px] font-medium leading-snug">
+            {toastText}
+          </p>
         </div>,
         {
           position: "top-right",
-          autoClose: false,       
+          autoClose: false,
           closeOnClick: true,
           draggable: true,
-          icon: <div className="p-1.5 bg-violet-100 text-violet-600 rounded-xl"><FiCheckCircle size={20} /></div>,
+          icon: (
+            <div className="p-1.5 bg-violet-100 text-violet-600 rounded-xl">
+              <FiCheckCircle size={20} />
+            </div>
+          ),
           onClick: () => handleNotificationNavigation(latest),
-          className: "bg-white shadow-[0_10px_30px_rgba(0,0,0,0.08)] border border-slate-100 rounded-2xl p-4 min-h-[70px] cursor-pointer",
-          progressClassName: "bg-gradient-to-r from-violet-500 to-fuchsia-500"
-        }
+          className:
+            "bg-white shadow-[0_10px_30px_rgba(0,0,0,0.08)] border border-slate-100 rounded-2xl p-4 min-h-[70px] cursor-pointer",
+          progressClassName: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
+        },
       );
     }
     lastNotificationCount.current = notifications.length;
@@ -128,7 +142,10 @@ const Header = ({ config, onMenuToggle, user }) => {
         setShowDropdown(false);
       }
 
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
         setShowNotifications(false);
       }
     };
@@ -144,10 +161,14 @@ const Header = ({ config, onMenuToggle, user }) => {
     navigate("/", { replace: true });
   };
 
-  const unreadNotificationsList = notifications.filter(notification => !notification.read);
+  const unreadNotificationsList = notifications.filter(
+    (notification) => !notification.read,
+  );
 
   return (
-    <header className="sticky top-0 z-40 h-24 bg-transparent px-4 sm:px-8 flex items-center justify-between pointer-events-none">
+    <>
+
+        <header className="sticky top-0 z-40 h-24 bg-transparent px-4 sm:px-8 flex items-center justify-between pointer-events-none">
       <div className="flex items-center gap-5 pointer-events-auto">
         <button
           onClick={onMenuToggle}
@@ -173,7 +194,10 @@ const Header = ({ config, onMenuToggle, user }) => {
                     <motion.div
                       animate={
                         unreadCount > 0
-                          ? { rotate: [0, -18, 18, -12, 12, 0], scale: [1, 1.15, 1] }
+                          ? {
+                              rotate: [0, -18, 18, -12, 12, 0],
+                              scale: [1, 1.15, 1],
+                            }
                           : { rotate: 0, scale: 1 }
                       }
                       transition={{
@@ -202,7 +226,6 @@ const Header = ({ config, onMenuToggle, user }) => {
 
                   {showNotifications && (
                     <div className="absolute right-0 top-14 w-80 bg-white rounded-xl shadow-xl border z-50 max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-                      
                       {/* Top Header: Notifications Title + Mark All Read Option */}
                       <div className="sticky top-0 z-10 bg-slate-50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-700 tracking-wide uppercase">
@@ -231,8 +254,12 @@ const Header = ({ config, onMenuToggle, user }) => {
                         </div>
                       ) : (
                         unreadNotificationsList.map((notification, i) => {
-                          const hasMessage = notification.message && notification.message.trim() !== "";
-                          const displayText = hasMessage ? notification.message : notification.title;
+                          const hasMessage =
+                            notification.message &&
+                            notification.message.trim() !== "";
+                          const displayText = hasMessage
+                            ? notification.message
+                            : notification.title;
 
                           return (
                             <div
@@ -266,11 +293,15 @@ const Header = ({ config, onMenuToggle, user }) => {
                                 <div className="flex items-center justify-between mt-3">
                                   <div className="flex items-center gap-1 text-xs text-slate-400">
                                     <FiClock />
-                                    {formatNotificationDate(notification.timestamp)}
+                                    {formatNotificationDate(
+                                      notification.timestamp,
+                                    )}
                                   </div>
 
                                   <button
-                                    onClick={() => handleNotificationNavigation(notification)}
+                                    onClick={() =>
+                                      handleNotificationNavigation(notification)
+                                    }
                                     className="flex items-center gap-1 text-violet-600 text-xs font-semibold hover:text-violet-700 cursor-pointer"
                                   >
                                     <FaCheckCircle />
@@ -326,7 +357,17 @@ const Header = ({ config, onMenuToggle, user }) => {
                       </button>
 
                       <div className="border-t border-slate-100"></div>
-
+                      <button
+                        onClick={() => {
+                          setShowVersionModal(true);
+                          setShowDropdown(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 transition font-medium"
+                      >
+                        <span className="text-violet-500">🚀</span>
+                        Version {RELEASE_NOTES.version}
+                      </button>
+                      <div className="border-t border-slate-100"></div>
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 transition font-semibold"
@@ -345,6 +386,75 @@ const Header = ({ config, onMenuToggle, user }) => {
         })}
       </div>
     </header>
+    <Modal
+  isOpen={showVersionModal}
+  onClose={() => setShowVersionModal(false)}
+  title={`Version ${RELEASE_NOTES.version} Update`}
+  widthClass="sm:w-[700px]"
+>
+  <div className="space-y-6">
+
+    {/* Release Info */}
+    <div className="flex items-center gap-3 rounded-xl bg-violet-50 border border-violet-100 p-4">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+        🚀
+      </div>
+
+      <div>
+        <p className="text-sm font-semibold text-slate-800">
+          Version {RELEASE_NOTES.version}
+        </p>
+
+        <p className="text-xs text-slate-500 mt-0.5">
+          Released {RELEASE_NOTES.dateLabel}
+        </p>
+      </div>
+    </div>
+
+
+    {/* Updates */}
+    <div className="space-y-6">
+
+      {RELEASE_NOTES.updates.map((section, index) => (
+        <section
+          key={index}
+          className="border-b border-slate-100 pb-5 last:border-0 last:pb-0"
+        >
+          <h3 className="text-sm font-bold text-slate-900 mb-3">
+            {section.module}
+          </h3>
+
+          <ul className="space-y-2 pl-5 list-disc marker:text-violet-500">
+            {section.items.map((item, itemIndex) => (
+              <li
+                key={itemIndex}
+                className="text-[13px] leading-5 text-slate-600"
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+
+    </div>
+
+
+    {/* Footer Note */}
+    <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
+      <p className="text-xs font-medium text-emerald-700">
+        ✨ More improvements are continuously rolling out!
+      </p>
+    </div>
+
+  </div>
+</Modal>
+    </>
+
+
+
+
+
   );
 };
 

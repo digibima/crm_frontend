@@ -35,6 +35,7 @@ const RenewalManagement = () => {
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [filterFromDate, setFilterFromDate] = useState("");
   const [filterToDate, setFilterToDate] = useState("");
 
@@ -61,16 +62,27 @@ const RenewalManagement = () => {
     fetchRenewalTasks();
   }, [currentPage]);
 
-  const fetchRenewalTasks = async () => {
+  // Updated fetchRenewalTasks to accept optional parameter overrides
+  const fetchRenewalTasks = async (overrideParams = null) => {
     try {
       setLoading(true);
-      
+
       const params = new URLSearchParams();
-      params.append("page", currentPage);
+
+      // Priority: use overrideParams if passed (for instant clear action), otherwise use state values
+      const search = overrideParams ? overrideParams.searchTerm : searchTerm;
+      const status = overrideParams ? overrideParams.filterStatus : filterStatus;
+      const fromDate = overrideParams ? overrideParams.filterFromDate : filterFromDate;
+      const toDate = overrideParams ? overrideParams.filterToDate : filterToDate;
+      const page = overrideParams ? overrideParams.page : currentPage;
+
+      if (search) params.append("clientName", search);
+      if (status) params.append("status", status);
+      if (fromDate) params.append("fromDate", fromDate);
+      if (toDate) params.append("toDate", toDate);
+      
+      params.append("page", page);
       params.append("perPage", itemsPerPage);
-      if (searchTerm) params.append("search", searchTerm);
-      if (filterFromDate) params.append("fromDate", filterFromDate);
-      if (filterToDate) params.append("toDate", filterToDate);
 
       const apiUrl = `/api/employee/tasks/renewal?${params.toString()}`;
       const response = await CallApi(apiUrl, "GET");
@@ -93,15 +105,29 @@ const RenewalManagement = () => {
   };
 
   const handleSearchButtonClick = () => {
-    setCurrentPage(1);
-    fetchRenewalTasks();
+    if (currentPage === 1) {
+      fetchRenewalTasks();
+    } else {
+      setCurrentPage(1);
+    }
   };
 
+  // Clear All Filters & Instantly Fetch Page 1 Data
   const clearAllFilters = () => {
     setSearchTerm("");
+    setFilterStatus("");
     setFilterFromDate("");
     setFilterToDate("");
     setCurrentPage(1);
+
+    // Explicitly pass empty parameters to fetch Page 1 data immediately
+    fetchRenewalTasks({
+      searchTerm: "",
+      filterStatus: "",
+      filterFromDate: "",
+      filterToDate: "",
+      page: 1
+    });
   };
 
   // Open Edit Modal with Pre-filled Task Details
@@ -130,7 +156,7 @@ const RenewalManagement = () => {
       if (response && (response.status || response.success)) {
         toast.success("Renewal status updated successfully!");
         setIsEditModalOpen(false);
-        fetchRenewalTasks();
+        fetchRenewalTasks(); // Table refresh
       } else {
         toast.error(response?.message || "Failed to update renewal status");
       }
@@ -159,7 +185,7 @@ const RenewalManagement = () => {
       </div>
 
       {/* Filter UI Panel */}
-      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-end gap-4 w-full">
+      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-end gap-4 w-full">
         {/* Client Name Input */}
         <div className="w-full xl:w-72 flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -209,8 +235,29 @@ const RenewalManagement = () => {
           />
         </div>
 
+        {/* Status Dropdown */}
+        <div className="w-full xl:w-48 flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Status
+          </label>
+          <div className="relative w-full">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full h-11 pl-3 pr-9 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 focus:border-[#00a896] focus:bg-white outline-none transition appearance-none cursor-pointer"
+            >
+              <option value="">Select Status</option>
+              <option value="pending">Pending</option>
+              <option value="renewed">Renewed</option>
+            </select>
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+              <FiChevronDown size={14} />
+            </div>
+          </div>
+        </div>
+
         {/* Action Buttons */}
-        <div className="flex items-center gap-3 w-full xl:w-auto shrink-0 pb-0.5">
+        <div className="flex items-center gap-3 w-full xl:w-auto shrink-0 mt-2 xl:mt-0">
           <button
             type="button"
             disabled={loading}
@@ -221,11 +268,11 @@ const RenewalManagement = () => {
             {loading ? "Searching..." : "Search"}
           </button>
 
-          {(filterFromDate || filterToDate || searchTerm) && (
+          {(filterFromDate || filterToDate || searchTerm || filterStatus) && (
             <button
               type="button"
               onClick={clearAllFilters}
-              className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-2 transition cursor-pointer whitespace-nowrap mb-1"
+              className="text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-2 transition cursor-pointer whitespace-nowrap"
             >
               Clear Filters
             </button>
