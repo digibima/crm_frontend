@@ -77,36 +77,36 @@ export default function Login() {
     try {
       setLoading(true);
 
-      let position;
-      try {
-        position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          });
-        });
-      } catch (locationErr) {
-        console.error("Browser Location Blocked:", locationErr);
+      // let position;
+      // try {
+      //   position = await new Promise((resolve, reject) => {
+      //     navigator.geolocation.getCurrentPosition(resolve, reject, {
+      //       enableHighAccuracy: true,
+      //       timeout: 10000,
+      //       maximumAge: 0,
+      //     });
+      //   });
+      // } catch (locationErr) {
+      //   console.error("Browser Location Blocked:", locationErr);
         
-        if (locationErr.code === 1) {
-          toast.error("Location blocked! Enable location permission or Chrome Flag for local IP testing.");
-        } else if (locationErr.code === 3) {
-          toast.error("Location request timed out. Please check your GPS.");
-        } else {
-          toast.error("Unable to get current location. Access denied by browser.");
-        }
+      //   if (locationErr.code === 1) {
+      //     toast.error("Location blocked! Enable location permission or Chrome Flag for local IP testing.");
+      //   } else if (locationErr.code === 3) {
+      //     toast.error("Location request timed out. Please check your GPS.");
+      //   } else {
+      //     toast.error("Unable to get current location. Access denied by browser.");
+      //   }
         
-        setLoading(false);
-        return; 
-      }
+      //   setLoading(false);
+      //   return; 
+      // }
 
       const payload = {
         mobile,
         otp,
         role: "employee",
-        latitude: position.coords.latitude.toString(),
-        longitude: position.coords.longitude.toString(),
+        // latitude: position.coords.latitude.toString(),
+        // longitude: position.coords.longitude.toString(),
       };
 
       console.log("PAYLOAD TRANSMITTED TO BACKEND:", payload);
@@ -123,7 +123,6 @@ export default function Login() {
 
         if (token) {
           localStorage.setItem("token", token);
-          // 12-Hour Timer ke liye exact login timestamp save karna
           localStorage.setItem("login_time", Date.now().toString());
         }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import constant from "../../../env";
 import { CallApi } from "../../../api";
 
@@ -18,6 +18,83 @@ import {
   FiClock,
   FiInfo
 } from "react-icons/fi";
+
+// Custom Multi-Select Checkbox Dropdown Component
+const MultiSelectCheckbox = ({ options, selectedValues, onChange, onFocus, placeholder = "— Select Employees —" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleToggleOption = (id) => {
+    const numericId = Number(id);
+    if (selectedValues.includes(numericId)) {
+      onChange(selectedValues.filter((val) => val !== numericId));
+    } else {
+      onChange([...selectedValues, numericId]);
+    }
+  };
+
+  const getSelectedNames = () => {
+    if (selectedValues.length === 0) return placeholder;
+    const names = options
+      .filter((opt) => selectedValues.includes(Number(opt.id)))
+      .map((opt) => opt.name);
+    return names.join(", ");
+  };
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <div
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (onFocus) onFocus();
+        }}
+        className="w-full min-h-[44px] text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-[#00a896] cursor-pointer flex items-center justify-between gap-2"
+      >
+        <span className={`truncate text-sm ${selectedValues.length === 0 ? "text-slate-400" : "text-slate-700"}`}>
+          {getSelectedNames()}
+        </span>
+        <FiChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg p-2 space-y-1">
+          {options.length === 0 ? (
+            <p className="text-xs text-slate-400 p-2 text-center">No employees available</p>
+          ) : (
+            options.map((emp) => {
+              const isChecked = selectedValues.includes(Number(emp.id));
+              return (
+                <label
+                  key={emp.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700 select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => handleToggleOption(emp.id)}
+                    className="w-4 h-4 rounded border-slate-300 text-[#00a896] focus:ring-[#00a896] cursor-pointer accent-[#00a896]"
+                  />
+                  <span>{emp.name}</span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Modal = ({
   isOpen,
@@ -104,7 +181,9 @@ const TaskManagement = () => {
   const [taskAction, setTaskAction] = useState("");
   const [leadDate, setLeadDate] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
-  const [assignTo, setAssignTo] = useState("");
+  
+  // Array state for multiple employee checkbox selection
+  const [assignTo, setAssignTo] = useState([]);
 
   const [clientName, setClientName] = useState("");
   const [renewalDate, setRenewalDate] = useState("");
@@ -130,9 +209,8 @@ const TaskManagement = () => {
 
   const [selectedTaskData, setSelectedTaskData] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewActiveTab, setViewActiveTab] = useState("details"); // Tab state
+  const [viewActiveTab, setViewActiveTab] = useState("details");
 
-  // Activity Log States
   const [taskLogs, setTaskLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
@@ -152,7 +230,6 @@ const TaskManagement = () => {
     fetchTasksLog();
   }, [currentPage, activeTab]);
 
-  // Fetch Task Logs function call
   const fetchTaskLogs = async (taskId) => {
     if (!taskId) return;
     try {
@@ -475,10 +552,8 @@ const TaskManagement = () => {
         "";
 
       const renewalFlow = isRenewalSelected();
-      let finalAssignTo = null;
-      if (assignTo) {
-        finalAssignTo = Array.isArray(assignTo) ? assignTo.map(Number) : [Number(assignTo)];
-      }
+      
+      const finalAssignTo = Array.isArray(assignTo) ? assignTo.map(Number) : [];
 
       const payload = {
         insuranceCategoryId: finalCatId ? Number(finalCatId) : null,
@@ -548,7 +623,8 @@ const TaskManagement = () => {
       const errorMsg =
         error?.response?.data?.message || "Something went wrong while deleting";
       reactToast.error(errorMsg);
-    } finally {
+    } 
+    finally {
       setIsDeleting(false);
     }
   };
@@ -586,7 +662,7 @@ const TaskManagement = () => {
     setTaskAction("");
     setLeadDate("");
     setFollowUpDate("");
-    setAssignTo("");
+    setAssignTo([]);
     setMotorRto("");
     setRegDate("");
     setHealthType("new_business");
@@ -686,6 +762,8 @@ const TaskManagement = () => {
         "";
 
       const renewalFlow = isRenewalSelected();
+      
+      const finalAssignTo = Array.isArray(assignTo) ? assignTo.map(Number) : [];
 
       const updatedPayload = {
         insuranceCategoryId: finalCatId ? Number(finalCatId) : null,
@@ -698,7 +776,7 @@ const TaskManagement = () => {
         followUpDate: renewalFlow ? null : followUpDate || null,
         renewalDate: renewalDate || null,
         renewalFollowUpDate: isRenewalSelected() ? (renewalFollowUpDate || null) : null,
-        assignTo: assignTo ? Number(assignTo) : null,
+        assignTo: finalAssignTo,
         clientContactNumber: clientPhone || null,
         status: taskStatus,
         registrationNumber: selectedCategoryName === "motor" ? motorRto : null,
@@ -729,20 +807,22 @@ const TaskManagement = () => {
 
   const handleReassignSubmit = async (e) => {
     e.preventDefault();
-    if (!assignTo) {
+    if (!assignTo || (Array.isArray(assignTo) && assignTo.length === 0)) {
       reactToast.warning("Please select an employee to reassign");
       return;
     }
 
     try {
       setIsReassigning(true);
+      
+      const singleAssign = Array.isArray(assignTo) ? assignTo[0] : assignTo;
 
       const response = await CallApi(
         `/api/tasks/reassign`,
         "POST",
         {
           taskId: Number(selectedTaskData?.id),
-          assignTo: Number(assignTo)
+          assignTo: Number(singleAssign)
         }
       );
 
@@ -1132,7 +1212,14 @@ const TaskManagement = () => {
                                 : ""
                             );
                             setHealthType(task.insuranceType || "new_business");
-                            setAssignTo(task.assignTo || "");
+                            
+                            if (Array.isArray(task.assignTo)) {
+                              setAssignTo(task.assignTo.map(Number));
+                            } else if (task.assignTo) {
+                              setAssignTo([Number(task.assignTo)]);
+                            } else {
+                              setAssignTo([]);
+                            }
 
                             setAmount(task.amount || "");
                             setPolicyNumber(task.policyNumber || "");
@@ -1178,7 +1265,13 @@ const TaskManagement = () => {
                           onClick={async () => {
                             setSelectedTaskData(task);
                             setIsReassignModalOpen(true);
-                            setAssignTo(task.assignTo || "");
+                            if (Array.isArray(task.assignTo)) {
+                              setAssignTo(task.assignTo.map(Number));
+                            } else if (task.assignTo) {
+                              setAssignTo([Number(task.assignTo)]);
+                            } else {
+                              setAssignTo([]);
+                            }
                             await handleEmployeeFocus();
                           }}
                           className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition cursor-pointer"
@@ -1759,24 +1852,13 @@ const TaskManagement = () => {
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Assign To
               </label>
-              <div className="relative w-full">
-                <select
-                  onFocus={handleEmployeeFocus}
-                  value={assignTo}
-                  onChange={(e) => setAssignTo(e.target.value)}
-                  className="w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896] cursor-pointer appearance-none pr-10"
-                >
-                  <option value="">— Select Employee —</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
-                  <FiChevronDown size={16} />
-                </div>
-              </div>
+              <MultiSelectCheckbox
+                options={employees}
+                selectedValues={assignTo}
+                onChange={(selected) => setAssignTo(selected)}
+                onFocus={handleEmployeeFocus}
+                placeholder="— Select Employees —"
+              />
             </div>
 
             <div>
@@ -1853,8 +1935,8 @@ const TaskManagement = () => {
             <div className="relative w-full">
               <select
                 required
-                value={assignTo}
-                onChange={(e) => setAssignTo(e.target.value)}
+                value={Array.isArray(assignTo) ? assignTo[0] || "" : assignTo}
+                onChange={(e) => setAssignTo([Number(e.target.value)])}
                 className="w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896] cursor-pointer appearance-none pr-10"
               >
                 <option value="">— Select Employee —</option>
@@ -1988,7 +2070,6 @@ const TaskManagement = () => {
               </button>
             </div>
 
-           
             {viewActiveTab === "details" && (
               <div className="overflow-hidden rounded-xl border border-slate-200">
                 <table className="w-full border-collapse text-sm">
@@ -2389,10 +2470,13 @@ const TaskManagement = () => {
 
             <div>
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Assign To</label>
-              <select value={assignTo} onChange={(e) => setAssignTo(e.target.value)} className="w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none cursor-pointer">
-                <option value="">— Select Employee —</option>
-                {employees.map((emp) => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}
-              </select>
+              <MultiSelectCheckbox
+                options={employees}
+                selectedValues={assignTo}
+                onChange={(selected) => setAssignTo(selected)}
+                onFocus={handleEmployeeFocus}
+                placeholder="— Select Employees —"
+              />
             </div>
 
             <div className="sm:col-span-2">
