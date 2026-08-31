@@ -23,7 +23,8 @@ const constant = {
       },
       REPORT: {
         DASHBOARD: "/api/admin/reports/employee-performance"
-      }
+      },
+      GOOGLESHEETS: "/api/google-sheets"
 
     },
     SUPERADMIN: {

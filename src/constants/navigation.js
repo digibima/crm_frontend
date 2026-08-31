@@ -14,7 +14,8 @@ import {
   FaFileInvoice,
   FaUserCircle,
   FaSyncAlt,
-  FaHistory 
+  FaHistory,
+  FaKey
 } from "react-icons/fa";
 
 const navigation = {
@@ -60,6 +61,11 @@ const navigation = {
       path: "/admin/activitylog",
       icon: FaHistory,
     },
+    {
+  title: "Credentials & Sheets",
+  path: "/admin/credentials",
+  icon: FaKey
+},
       {
       title: "Profile",
       path: "/admin/profile",

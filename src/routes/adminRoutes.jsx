@@ -12,6 +12,7 @@ import Salary from "../pages/Admin/Salary/Salary";
 import ActivityLog from "../pages/Admin/ActivityLog/ActivityLog";
 import Reports from "../pages/Admin/Reports/Reports";
 import Profile from "../pages/Admin/Profile/profile";
+import CredentialsManager from "../pages/Admin/Credentials/CredentialsManager";
 
 const AdminRoutes = () => {
   return (
@@ -30,6 +31,7 @@ const AdminRoutes = () => {
         <Route path="activitylog" element={<ActivityLog />} />
         <Route path="reports" element={<Reports />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="credentials" element={<CredentialsManager />} />
       </Route>
     </Routes>
   );
