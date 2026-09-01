@@ -39,7 +39,8 @@ const constant = {
       SEARCHTASK: "/api/employee/tasks/search",
       ATTENDANCE: {
         HISTORY: "/api/employee/attendance/history"
-      }
+      },
+       GOOGLESHEETS: "/api/employee/google-sheets"
     },
   },
 

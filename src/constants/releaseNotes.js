@@ -1,28 +1,25 @@
 const RELEASE_NOTES = {
-  version: "v1.0.7",
-  dateLabel: "31 August 2026",
-  dateTime: "2026-08-31",
+  version: "v1.0.8",
+  dateLabel: "01 September 2026",
+  dateTime: "2026-09-01",
 
   updates: [
     {
-      module: "Authentication",
+      module: "Task Management",
       items: [
-        "Admin login functionality implemented using mobile number",
-        "Employee login functionality implemented using mobile number",
+        "Implemented bulk task reassign functionality to multiple employees",
       ],
     },
     {
       module: "Google Sheets Management",
       items: [
-        "Admin side Google Sheet upload and dynamic URL sharing implemented",
-        "Employee access control mapping for shared Google Sheets",
+        "Enabled Google Sheet view and access on Employee side",
       ],
     },
     {
-      module: "Notifications & Logs",
+      module: "Attendance & Leave Management",
       items: [
-        "Admin notification system update implemented",
-        "Recent activity log tracking and display integrated",
+        "Admin side attendance sheet enhanced with custom holiday and Sunday addition features",
       ],
     },
   ],

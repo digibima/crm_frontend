@@ -68,7 +68,7 @@ const MultiSelectCheckbox = ({ options, selectedValues, onChange, onFocus, place
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg p-2 space-y-1">
+        <div className="mt-2 max-h-44 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-sm p-2 space-y-1">
           {options.length === 0 ? (
             <p className="text-xs text-slate-400 p-2 text-center">No employees available</p>
           ) : (
@@ -181,7 +181,7 @@ const TaskManagement = () => {
   const [taskAction, setTaskAction] = useState("");
   const [leadDate, setLeadDate] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
-  
+
   // Array state for multiple employee checkbox selection
   const [assignTo, setAssignTo] = useState([]);
 
@@ -552,7 +552,7 @@ const TaskManagement = () => {
         "";
 
       const renewalFlow = isRenewalSelected();
-      
+
       const finalAssignTo = Array.isArray(assignTo) ? assignTo.map(Number) : [];
 
       const payload = {
@@ -623,7 +623,7 @@ const TaskManagement = () => {
       const errorMsg =
         error?.response?.data?.message || "Something went wrong while deleting";
       reactToast.error(errorMsg);
-    } 
+    }
     finally {
       setIsDeleting(false);
     }
@@ -718,7 +718,7 @@ const TaskManagement = () => {
       }
     } catch (error) {
       reactToast.error("Unable to load tasks from server");
-    } 
+    }
   };
 
   const handleEditSubmit = async (e) => {
@@ -762,7 +762,7 @@ const TaskManagement = () => {
         "";
 
       const renewalFlow = isRenewalSelected();
-      
+
       const finalAssignTo = Array.isArray(assignTo) ? assignTo.map(Number) : [];
 
       const updatedPayload = {
@@ -814,18 +814,18 @@ const TaskManagement = () => {
 
     try {
       setIsReassigning(true);
-      
-      const singleAssign = Array.isArray(assignTo) ? assignTo[0] : assignTo;
 
+      const finalAssignTo = Array.isArray(assignTo) ? assignTo.map(Number) : [];
+      console.log("finalAssignTo", finalAssignTo)
+      // return false;
       const response = await CallApi(
         `/api/tasks/reassign`,
         "POST",
         {
           taskId: Number(selectedTaskData?.id),
-          assignTo: Number(singleAssign)
+          assignTo: finalAssignTo
         }
       );
-
       if (response.status) {
         reactToast.success("Task reassigned successfully!");
         setIsReassignModalOpen(false);
@@ -965,14 +965,14 @@ const TaskManagement = () => {
                 searchType === "all_fields"
                   ? "Search Client, Employee, Mobile..."
                   : searchType === "employee"
-                  ? "Search Assigned Employee..."
-                  : searchType === "insurance"
-                  ? "Search Insurance (Category/Sub-Category)..."
-                  : searchType === "clientName"
-                  ? "Search Client Name..."
-                  : searchType === "clientContact"
-                  ? "Search Client Contact..."
-                  : "Search Registration (RTO) Number..."
+                    ? "Search Assigned Employee..."
+                    : searchType === "insurance"
+                      ? "Search Insurance (Category/Sub-Category)..."
+                      : searchType === "clientName"
+                        ? "Search Client Name..."
+                        : searchType === "clientContact"
+                          ? "Search Client Contact..."
+                          : "Search Registration (RTO) Number..."
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -1203,16 +1203,16 @@ const TaskManagement = () => {
                             setRenewalDate(task.renewalDate ? task.renewalDate.split("T")[0] : "");
                             setMotorRto(task.registrationNumber || "");
                             setRegDate(
-                              task.registration_date 
-                                ? task.registration_date.split("T")[0] 
-                                : task.registrationDate 
-                                ? task.registrationDate.split("T")[0] 
-                                : task.regDate 
-                                ? task.regDate.split("T")[0] 
-                                : ""
+                              task.registration_date
+                                ? task.registration_date.split("T")[0]
+                                : task.registrationDate
+                                  ? task.registrationDate.split("T")[0]
+                                  : task.regDate
+                                    ? task.regDate.split("T")[0]
+                                    : ""
                             );
                             setHealthType(task.insuranceType || "new_business");
-                            
+
                             if (Array.isArray(task.assignTo)) {
                               setAssignTo(task.assignTo.map(Number));
                             } else if (task.assignTo) {
@@ -1648,37 +1648,37 @@ const TaskManagement = () => {
               .find((c) => Number(c.id) === Number(selectedCategory))
               ?.name?.toLowerCase() === "motor" && (
                 <>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    RTO Number
-                  </label>
-                  <input
-                    type="text"
-                    value={motorRto}
-                    maxLength={13}
-                    onChange={(e) => {
-                      const cleanValue = e.target.value.replace(/[^a-zA-Z0-9-]/g, "");
-                      setMotorRto(cleanValue.toUpperCase());
-                      if (errors.motorRto) setErrors((prev) => ({ ...prev, motorRto: false }));
-                    }}
-                    placeholder="e.g. DL-01-CA-1234"
-                    className={`w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border rounded-xl px-4 focus:outline-none focus:border-[#00a896] ${errors.motorRto ? "border-rose-500 bg-rose-50/30" : "border-slate-200"
-                      }`}
-                  />
-                </div>
-                <div>
-        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-          Registration Date
-        </label>
-        <input
-          type="date"
-          value={regDate}
-          onChange={(e) => setRegDate(e.target.value)}
-          className="w-full h-11 text-sm font-medium text-slate-600 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896] cursor-pointer"
-        />
-      </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      RTO Number
+                    </label>
+                    <input
+                      type="text"
+                      value={motorRto}
+                      maxLength={13}
+                      onChange={(e) => {
+                        const cleanValue = e.target.value.replace(/[^a-zA-Z0-9-]/g, "");
+                        setMotorRto(cleanValue.toUpperCase());
+                        if (errors.motorRto) setErrors((prev) => ({ ...prev, motorRto: false }));
+                      }}
+                      placeholder="e.g. DL-01-CA-1234"
+                      className={`w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border rounded-xl px-4 focus:outline-none focus:border-[#00a896] ${errors.motorRto ? "border-rose-500 bg-rose-50/30" : "border-slate-200"
+                        }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Registration Date
+                    </label>
+                    <input
+                      type="date"
+                      value={regDate}
+                      onChange={(e) => setRegDate(e.target.value)}
+                      className="w-full h-11 text-sm font-medium text-slate-600 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896] cursor-pointer"
+                    />
+                  </div>
                 </>
-                
+
 
               )}
 
@@ -1923,33 +1923,22 @@ const TaskManagement = () => {
         title="Reassign Task"
         widthClass="sm:w-[450px]"
       >
-        <form className="space-y-4 text-left" onSubmit={handleReassignSubmit}>
+        <form className="space-y-4 text-left  flex flex-col justify-between" onSubmit={handleReassignSubmit}>
           <div>
             <p className="text-xs text-slate-500 mb-3 leading-relaxed">
               Reassigning task for client: <span className="font-bold text-slate-700">"{selectedTaskData?.clientName || "—"}"</span>
             </p>
 
             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Select New Employee
+              Select Employees to Reassign
             </label>
-            <div className="relative w-full">
-              <select
-                required
-                value={Array.isArray(assignTo) ? assignTo[0] || "" : assignTo}
-                onChange={(e) => setAssignTo([Number(e.target.value)])}
-                className="w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896] cursor-pointer appearance-none pr-10"
-              >
-                <option value="">— Select Employee —</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
-                <FiChevronDown size={16} />
-              </div>
-            </div>
+            <MultiSelectCheckbox
+              options={employees}
+              selectedValues={assignTo}
+              onChange={(selected) => setAssignTo(selected)}
+              onFocus={handleEmployeeFocus}
+              placeholder="— Select Employees —"
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
@@ -2049,22 +2038,20 @@ const TaskManagement = () => {
               <button
                 type="button"
                 onClick={() => handleTabClick("details")}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer ${
-                  viewActiveTab === "details"
-                    ? "border-[#00a896] text-[#00a896]"
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer ${viewActiveTab === "details"
+                  ? "border-[#00a896] text-[#00a896]"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 <FiInfo size={14} /> Task Details
               </button>
               <button
                 type="button"
                 onClick={() => handleTabClick("history")}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer ${
-                  viewActiveTab === "history"
-                    ? "border-[#00a896] text-[#00a896]"
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition cursor-pointer ${viewActiveTab === "history"
+                  ? "border-[#00a896] text-[#00a896]"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 <FiClock size={14} /> History & Activity Log
               </button>
@@ -2109,20 +2096,19 @@ const TaskManagement = () => {
                       </th>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            selectedTaskData.status === "completed" || selectedTaskData.status === "Completed"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : selectedTaskData.status === "pending" || selectedTaskData.status === "Pending"
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${selectedTaskData.status === "completed" || selectedTaskData.status === "Completed"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : selectedTaskData.status === "pending" || selectedTaskData.status === "Pending"
                               ? "bg-amber-100 text-amber-700"
                               : selectedTaskData.status === "Rejected"
-                              ? "bg-rose-100 text-rose-700"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
+                                ? "bg-rose-100 text-rose-700"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
                         >
                           {selectedTaskData.status
                             ? selectedTaskData.status
-                                .replace(/_/g, " ")
-                                .replace(/\b\w/g, (char) => char.toUpperCase())
+                              .replace(/_/g, " ")
+                              .replace(/\b\w/g, (char) => char.toUpperCase())
                             : "N/A"}
                         </span>
                       </td>
@@ -2163,7 +2149,7 @@ const TaskManagement = () => {
 
             {viewActiveTab === "history" && (
               <div className="bg-slate-50/60 border border-slate-200/80 rounded-2xl p-5 transition-all">
-                
+
                 {/* Header Section */}
                 <div className="flex items-center justify-between pb-3.5 mb-5 border-b border-slate-200/80">
                   <div className="flex items-center gap-2.5">
@@ -2198,13 +2184,13 @@ const TaskManagement = () => {
                     {taskLogs.map((log, index) => {
                       const formattedDate = log.createdAt
                         ? new Date(log.createdAt).toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          })
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })
                         : "—";
 
                       const isLatest = index === 0;
@@ -2213,19 +2199,18 @@ const TaskManagement = () => {
                         <div key={log.id || index} className="relative group">
                           {/* Timeline Bullet Ring */}
                           <div
-                            className={`absolute -left-[21px] top-3.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs transition-all ${
-                              isLatest
-                                ? "bg-[#00a896] ring-4 ring-[#00a896]/15 scale-110"
-                                : "bg-slate-300 group-hover:bg-slate-400"
-                            }`}
+                            className={`absolute -left-[21px] top-3.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs transition-all ${isLatest
+                              ? "bg-[#00a896] ring-4 ring-[#00a896]/15 scale-110"
+                              : "bg-slate-300 group-hover:bg-slate-400"
+                              }`}
                           />
 
                           {/* Compact Micro-Card */}
                           <div className="bg-white border border-slate-200/90 rounded-xl p-3 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200">
-                            
+
                             {/* Top Row: Status Badges & Time */}
                             <div className="flex items-center justify-between gap-2">
-                              
+
                               {/* Status Pills */}
                               <div className="flex items-center gap-1.5 text-xs font-bold">
                                 {log.oldStatus && (
@@ -2380,32 +2365,32 @@ const TaskManagement = () => {
               <input type="text" value={clientPhone} maxLength={10} onChange={(e) => setClientPhone(e.target.value.replace(/\D/g, ""))} className="w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896]" />
             </div>
 
-           {apiCategories.find((c) => Number(c.id) === Number(selectedCategory))?.name?.toLowerCase() === "motor" && (
-  <>
-    <div>
-      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">RTO Number</label>
-      <input 
-        type="text" 
-        value={motorRto} 
-        maxLength={13} 
-        onChange={(e) => setMotorRto(e.target.value.replace(/[^a-zA-Z0-9-]/g, "").toUpperCase())} 
-        className="w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none" 
-      />
-    </div>
+            {apiCategories.find((c) => Number(c.id) === Number(selectedCategory))?.name?.toLowerCase() === "motor" && (
+              <>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">RTO Number</label>
+                  <input
+                    type="text"
+                    value={motorRto}
+                    maxLength={13}
+                    onChange={(e) => setMotorRto(e.target.value.replace(/[^a-zA-Z0-9-]/g, "").toUpperCase())}
+                    className="w-full h-11 text-sm font-medium text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none"
+                  />
+                </div>
 
-    <div>
-      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-        Registration Date
-      </label>
-      <input
-        type="date"
-        value={regDate}
-        onChange={(e) => setRegDate(e.target.value)}
-        className="w-full h-11 text-sm font-medium text-slate-600 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896] cursor-pointer"
-      />
-    </div>
-  </>
-)}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Registration Date
+                  </label>
+                  <input
+                    type="date"
+                    value={regDate}
+                    onChange={(e) => setRegDate(e.target.value)}
+                    className="w-full h-11 text-sm font-medium text-slate-600 bg-slate-50/50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:border-[#00a896] cursor-pointer"
+                  />
+                </div>
+              </>
+            )}
 
             {apiCategories.find((c) => Number(c.id) === Number(selectedCategory))?.name?.toLowerCase() === "health" && (
               <div>

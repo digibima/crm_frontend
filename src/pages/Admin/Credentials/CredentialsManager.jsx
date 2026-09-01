@@ -4,12 +4,12 @@ import {
   TbExternalLink, 
   TbPlus, 
   TbUserCheck, 
-  TbX,
   TbLoader
 } from "react-icons/tb";
 
 import { CallApi } from "../../../api"; 
 import constant from "../../../env";
+import Modal from "../../../components/Modal"; // Apne project structure ke hisaab se path adjust karein
 
 export default function CredentialsManager() {
   const [sheetsList, setSheetsList] = useState([]);
@@ -25,7 +25,6 @@ export default function CredentialsManager() {
     accessType: "View Only",
     assignedEmployees: []
   });
-
 
   const fetchSheets = async () => {
     try {
@@ -62,7 +61,6 @@ export default function CredentialsManager() {
       };
     });
   };
-
 
   const handleAddSheet = async (e) => {
     e.preventDefault();
@@ -185,115 +183,108 @@ export default function CredentialsManager() {
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 relative">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <TbX className="w-5 h-5" />
-            </button>
-
-            <h2 className="text-lg font-bold text-slate-800 mb-1">Add & Share Google Sheet</h2>
-
-            <form onSubmit={handleAddSheet} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Sheet Title</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  placeholder="e.g. Sales Master Sheet 2026"
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Google Sheet URL</label>
-                <input
-                  type="url"
-                  name="sheetUrl"
-                  value={formData.sheetUrl}
-                  onChange={handleInputChange}
-                  placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id"
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Folder Category</label>
-                  <input
-                    type="text"
-                    name="folder"
-                    value={formData.folder}
-                    onChange={handleInputChange}
-                    placeholder="e.g. HR & Finance"
-                    className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Access Type</label>
-                  <select
-                    name="accessType"
-                    value={formData.accessType}
-                    onChange={handleInputChange}
-                    className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="View Only">View Only</option>
-                    <option value="Edit">Edit</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Assign To Employees ({availableEmployees.length} Available):
-                </label>
-                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1 bg-slate-50">
-                  {availableEmployees.length > 0 ? (
-                    availableEmployees.map((emp) => (
-                      <label key={emp.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.assignedEmployees.includes(emp.id)}
-                          onChange={() => handleEmployeeToggle(emp.id)}
-                          className="rounded text-emerald-600 focus:ring-emerald-500"
-                        />
-                        <span className="font-medium text-slate-800">{emp.name}</span>
-                        <span className="text-[10px] text-slate-400 capitalize">({emp.designation || emp.role})</span>
-                      </label>
-                    ))
-                  ) : (
-                    <div className="text-xs text-slate-400 p-2 text-center">No employees found</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-xs px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="text-xs px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition flex items-center gap-1 cursor-pointer"
-                >
-                  {submitting ? <TbLoader className="w-4 h-4 animate-spin" /> : "Save & Post Sheet"}
-                </button>
-              </div>
-            </form>
+      {/* Global Reusable Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Add & Share Google Sheet"
+        widthClass="sm:w-[500px]"
+      >
+        <form onSubmit={handleAddSheet} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Sheet Title</label>
+            <input
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleInputChange}
+              placeholder="e.g. Sales Master Sheet 2026"
+              className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              required
+            />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Google Sheet URL</label>
+            <input
+              type="url"
+              name="sheetUrl"
+              value={formData.sheetUrl}
+              onChange={handleInputChange}
+              placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id"
+              className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Folder Category</label>
+              <input
+                type="text"
+                name="folder"
+                value={formData.folder}
+                onChange={handleInputChange}
+                placeholder="e.g. HR & Finance"
+                className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Access Type</label>
+              <select
+                name="accessType"
+                value={formData.accessType}
+                onChange={handleInputChange}
+                className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="View Only">View Only</option>
+                <option value="Edit">Edit</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Assign To Employees ({availableEmployees.length} Available):
+            </label>
+            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1 bg-slate-50">
+              {availableEmployees.length > 0 ? (
+                availableEmployees.map((emp) => (
+                  <label key={emp.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.assignedEmployees.includes(emp.id)}
+                      onChange={() => handleEmployeeToggle(emp.id)}
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="font-medium text-slate-800">{emp.name}</span>
+                    <span className="text-[10px] text-slate-400 capitalize">({emp.designation || emp.role})</span>
+                  </label>
+                ))
+              ) : (
+                <div className="text-xs text-slate-400 p-2 text-center">No employees found</div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="text-xs px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="text-xs px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition flex items-center gap-1 cursor-pointer"
+            >
+              {submitting ? <TbLoader className="w-4 h-4 animate-spin" /> : "Save & Post Sheet"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

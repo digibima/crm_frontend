@@ -130,7 +130,13 @@ employee: {
       title: "My Salary",
       path: "/employee/salary",
       icon: FaMoneyBillWave,
+      
     },
+        {
+  title: "Credentials & Sheets",
+  path: "/employee/credentials",
+  icon: FaKey
+},
        {
         title: "My Profile",
         path: "/employee/profile",

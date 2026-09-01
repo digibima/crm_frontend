@@ -10,6 +10,7 @@ import Messages from "../pages/Employee/Messages/Messages";
 import Attendance from "../pages/Employee/Attendance/Attendance";
 import Salary from "../pages/Employee/Salary/Salary";
 import Profile from "../pages/Employee/Profile/Profile";
+import CredentialsManager from "../pages/Employee/Credentials/CredentialsManager";
 
 
 const EmployeeRoutes = () => {
@@ -26,7 +27,7 @@ const EmployeeRoutes = () => {
         <Route path="attendance" element={<Attendance />} />
         <Route path="salary" element={<Salary />} />
         <Route path="profile" element={<Profile />} />
-
+        <Route path="credentials" element={<CredentialsManager />} />
       </Route>
     </Routes>
   );

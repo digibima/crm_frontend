@@ -29,7 +29,7 @@ const EmployeeDashboard = () => {
   const getDashboardData = async () => {
     try {
       setLoading(true);
-      setImgError(false); // Refetch karne par image error state reset hoga
+      setImgError(false);
       const response = await CallApi(
         constant.API.EMPLOYEE.VIEWDASHBOARD,
         "GET"
@@ -52,11 +52,9 @@ const EmployeeDashboard = () => {
     getDashboardData();
   }, []);
 
-  // Profile Image URL ko properly construct/resolve karne ka function
   const getProfileImageUrl = (profileData) => {
     if (!profileData) return null;
 
-    // 1. profileImageRaw se valid HTTP URL banana (Sabse reliable method)
     if (profileData.profileImageRaw) {
       const baseUrl = constant.BASE_URL || "http://localhost:3333";
       const cleanPath = profileData.profileImageRaw.startsWith("/")
@@ -65,7 +63,6 @@ const EmployeeDashboard = () => {
       return `${baseUrl}/${cleanPath}`;
     }
 
-    // 2. Full profileImage URL mein se browser-unsupported '0.0.0.0' IP ko replace karna
     if (profileData.profileImage) {
       return profileData.profileImage.replace("0.0.0.0", "localhost");
     }
@@ -93,7 +90,9 @@ const EmployeeDashboard = () => {
   const todayAttendance = dashboardData?.todayAttendance;
   const pendingLeaveRequests = dashboardData?.pendingLeaveRequests || 0;
 
-  const primaryLeave = leaveSummary[0] || { remaining: "0", total: "0", used: "0", pending: "0" };
+  // Leave Totals
+  const totalRemainingLeaves = leaveSummary.reduce((acc, curr) => acc + (Number(curr.remaining) || 0), 0);
+  const totalUsedLeaves = leaveSummary.reduce((acc, curr) => acc + (Number(curr.used) || 0), 0);
 
   const stats = [
     {
@@ -124,8 +123,8 @@ const EmployeeDashboard = () => {
     },
     {
       title: "Leaves Remaining",
-      value: `${primaryLeave.remaining} Days`,
-      change: `${primaryLeave.used} Used | ${pendingLeaveRequests} Pending Req`,
+      value: `${totalRemainingLeaves} Days`,
+      change: `${totalUsedLeaves} Used | ${pendingLeaveRequests} Pending Req`,
       isPositive: true,
       lottieData: pendingLottie,
       color: "bg-amber-500/10",
@@ -139,8 +138,6 @@ const EmployeeDashboard = () => {
     <div className="space-y-6">
       <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          
-          {/* Profile Image with Letter Fallback */}
           {profileImgUrl && !imgError ? (
             <img
               src={profileImgUrl}
@@ -162,7 +159,7 @@ const EmployeeDashboard = () => {
               <span className="flex items-center gap-1"><FiBriefcase className="text-cyan-500"/> {profile.designation?.toUpperCase() || "N/A"}</span>
               <span className="flex items-center gap-1"><FiMail className="text-cyan-500"/> {profile.email || "N/A"}</span>
               <span className="flex items-center gap-1"><FiPhone className="text-cyan-500"/> {profile.mobile || "N/A"}</span>
-              <span className="flex items-center gap-1"><FiCalendar className="text-cyan-500"/> DOJ: {profile.doj || "N/A"}</span>
+              <span className="flex items-center gap-1"><FiCalendar className="text-cyan-500"/> DOJ: {profile.doj ? profile.doj.split('T')[0] : "N/A"}</span>
             </div>
           </div>
         </div>
@@ -357,36 +354,77 @@ const EmployeeDashboard = () => {
 
       {/* Leave Summary Section */}
       <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <h3 className="font-bold text-slate-700 text-sm tracking-wide mb-4 pb-2 border-b border-slate-50">
-          Leave Balances
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {leaveSummary.map((item, idx) => (
-            <React.Fragment key={idx}>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase">{item.leaveType} Total</span>
-                <span className="text-2xl font-bold text-slate-700 mt-1">{item.total} Days</span>
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-50">
+          <h3 className="font-bold text-slate-700 text-sm tracking-wide">
+            Leave Balances
+          </h3>
+          <span className="text-xs text-slate-400 font-medium">
+            Pending Requests: {pendingLeaveRequests}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {leaveSummary.length > 0 ? (
+            leaveSummary.map((item, idx) => (
+              <div key={idx} className="bg-slate-50/60 p-4 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-slate-700">
+                    {item.leaveType}
+                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                    Total: {item.total} Days
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Total
+                    </span>
+                    <span className="text-lg font-bold text-slate-700 mt-0.5 block">
+                      {item.total} Days
+                    </span>
+                  </div>
+
+                  <div className="bg-emerald-50/60 p-3 rounded-lg border border-emerald-100/60 shadow-sm">
+                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                      Remaining
+                    </span>
+                    <span className="text-lg font-bold text-emerald-700 mt-0.5 block">
+                      {item.remaining} Days
+                    </span>
+                  </div>
+
+                  <div className="bg-rose-50/60 p-3 rounded-lg border border-rose-100/60 shadow-sm">
+                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">
+                      Used
+                    </span>
+                    <span className="text-lg font-bold text-rose-700 mt-0.5 block">
+                      {item.used} Days
+                    </span>
+                  </div>
+
+                  <div className="bg-amber-50/60 p-3 rounded-lg border border-amber-100/60 shadow-sm">
+                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">
+                      Pending
+                    </span>
+                    <span className="text-lg font-bold text-amber-700 mt-0.5 block">
+                      {item.pending} Days
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col justify-between">
-                <span className="text-xs font-semibold text-emerald-600 uppercase">Remaining</span>
-                <span className="text-2xl font-bold text-emerald-700 mt-1">{item.remaining} Days</span>
-              </div>
-              <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 flex flex-col justify-between">
-                <span className="text-xs font-semibold text-rose-500 uppercase">Used</span>
-                <span className="text-2xl font-bold text-rose-700 mt-1">{item.used} Days</span>
-              </div>
-              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex flex-col justify-between">
-                <span className="text-xs font-semibold text-amber-600 uppercase">Pending Approval</span>
-                <span className="text-2xl font-bold text-amber-700 mt-1">{item.pending} Days</span>
-              </div>
-            </React.Fragment>
-          ))}
+            ))
+          ) : (
+            <div className="text-center py-4 text-xs text-slate-400">
+              No leave balance data available
+            </div>
+          )}
         </div>
       </div>
 
       {/* Bottom Grid: Recent Tasks & Recent Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Tasks Table */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
           <div>
             <div className="p-5 border-b border-slate-50 flex items-center justify-between">
@@ -431,7 +469,7 @@ const EmployeeDashboard = () => {
                             • {task.status}
                           </span>
                         </td>
-                        <td className="pr-6 text-slate-400">{task.followUpDate || "N/A"}</td>
+                        <td className="pr-6 text-slate-400">{task.followUpDate ? task.followUpDate.split('T')[0] : "N/A"}</td>
                       </tr>
                     ))
                   ) : (
@@ -445,7 +483,6 @@ const EmployeeDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Activities Timeline */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <h3 className="font-bold text-slate-700 text-sm tracking-wide mb-4 pb-2 border-b border-slate-50">
             Recent Activities
