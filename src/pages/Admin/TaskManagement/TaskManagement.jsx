@@ -2147,126 +2147,197 @@ const TaskManagement = () => {
               </div>
             )}
 
-            {viewActiveTab === "history" && (
-              <div className="bg-slate-50/60 border border-slate-200/80 rounded-2xl p-5 transition-all">
+           {viewActiveTab === "history" && (
+  <div className="bg-slate-50/60 border border-slate-200/80 rounded-2xl p-5 transition-all">
+    {/* Header Section */}
+    <div className="flex items-center justify-between pb-3.5 mb-5 border-b border-slate-200/80">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-[#00a896]/10 text-[#00a896] flex items-center justify-center font-bold shadow-xs">
+          <FiClock size={16} />
+        </div>
+        <div>
+          <h4 className="text-sm font-extrabold text-slate-800 tracking-tight">
+            Task Journey Log
+          </h4>
+          <p className="text-[11px] text-slate-400 font-medium">
+            Task #{selectedTaskData?.id} timeline & status changes
+          </p>
+        </div>
+      </div>
 
-                {/* Header Section */}
-                <div className="flex items-center justify-between pb-3.5 mb-5 border-b border-slate-200/80">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-[#00a896]/10 text-[#00a896] flex items-center justify-center font-bold shadow-xs">
-                      <FiClock size={16} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-extrabold text-slate-800 tracking-tight">
-                        Task Journey Log
-                      </h4>
-                      <p className="text-[11px] text-slate-400 font-medium">
-                        Task #{selectedTaskData.id} timeline
-                      </p>
-                    </div>
+      {taskLogs && taskLogs.length > 0 && (
+        <span className="text-[10px] font-bold text-[#00a896] bg-[#00a896]/10 px-3 py-1 rounded-full uppercase tracking-wider">
+          {taskLogs.length} {taskLogs.length === 1 ? "Log" : "Logs"}
+        </span>
+      )}
+    </div>
+
+    {/* Content Area */}
+    {logsLoading ? (
+      <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+        <div className="w-6 h-6 border-2 border-[#00a896] border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-semibold">Loading log timeline...</span>
+      </div>
+    ) : taskLogs && taskLogs.length > 0 ? (
+      <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+        {taskLogs.map((log, index) => {
+          const formattedLogDate = log.createdAt
+            ? new Date(log.createdAt).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "—";
+
+          const formattedTaskCreated = log.task?.createdAt
+            ? new Date(log.task.createdAt).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "—";
+
+          const formattedLeadDate = log.task?.leadDate
+            ? log.task.leadDate.split("-").reverse().join("-")
+            : "—";
+
+          const isLatest = index === 0;
+
+          const getStatusBadgeClass = (status) => {
+            switch (status?.toLowerCase()) {
+              case "pending":
+                return "bg-amber-50 text-amber-700 border-amber-200";
+              case "follow_up":
+                return "bg-sky-50 text-sky-700 border-sky-200";
+              case "completed":
+                return "bg-emerald-50 text-emerald-700 border-emerald-200";
+              case "not_converted":
+                return "bg-rose-50 text-rose-700 border-rose-200";
+              case "call_again":
+                return "bg-purple-50 text-purple-700 border-purple-200";
+              default:
+                return "bg-slate-100 text-slate-700 border-slate-200";
+            }
+          };
+
+          return (
+            <div key={log.id || index} className="relative group">
+              {/* Timeline Bullet Ring */}
+              <div
+                className={`absolute -left-[23px] top-4 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs transition-all ${
+                  isLatest
+                    ? "bg-[#00a896] ring-4 ring-[#00a896]/20 scale-110"
+                    : "bg-slate-300 group-hover:bg-slate-400"
+                }`}
+              />
+
+              {/* Log Card */}
+              <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs hover:shadow-sm transition-all duration-200 space-y-2.5">
+                {/* 1. Status Changes & Log Time */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {log.oldStatus && (
+                      <>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(
+                            log.oldStatus
+                          )}`}
+                        >
+                          {log.oldStatus.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-slate-300 text-xs font-bold">➔</span>
+                      </>
+                    )}
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(
+                        log.newStatus
+                      )}`}
+                    >
+                      {log.newStatus ? log.newStatus.replace(/_/g, " ") : "Updated"}
+                    </span>
                   </div>
 
-                  {taskLogs && taskLogs.length > 0 && (
-                    <span className="text-[10px] font-bold text-[#00a896] bg-[#00a896]/10 px-3 py-1 rounded-full uppercase tracking-wider">
-                      {taskLogs.length} Logs
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    {formattedLogDate}
+                  </span>
+                </div>
+
+                {/* 2. Task Details Block (task.id, task.leadDate, task.createdAt) */}
+                {log.task && (
+                  <div className="flex items-center gap-4 bg-slate-50/70 border border-slate-100 rounded-lg px-3 py-2 text-[11px] text-slate-600 flex-wrap">
+                    <div>
+                      <span className="text-slate-400 font-semibold">Task ID: </span>
+                      <span className="font-bold text-slate-700">#{log.task.id}</span>
+                    </div>
+
+                    <div className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block" />
+
+                    <div>
+                      <span className="text-slate-400 font-semibold">Lead Date: </span>
+                      <span className="font-bold text-slate-700">{formattedLeadDate}</span>
+                    </div>
+
+                    <div className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block" />
+
+                    <div>
+                      <span className="text-slate-400 font-semibold">Task Created: </span>
+                      <span className="font-bold text-slate-700">{formattedTaskCreated}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Remarks */}
+                {log.remarks ? (
+                  <div className="bg-slate-50/80 rounded-lg p-2.5 border-l-2 border-[#00a896] text-xs">
+                    <span className="font-semibold text-slate-700 block mb-1 text-[11px] uppercase tracking-wide">
+                      Remarks / Notes:
+                    </span>
+                    <p className="text-slate-600 whitespace-pre-line leading-relaxed font-medium">
+                      {log.remarks}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic">No remarks entered.</p>
+                )}
+
+                {/* 4. User Info */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span>Updated by:</span>
+                    <span className="font-bold text-slate-800">
+                      {log.user?.name || "System"}
+                    </span>
+                    {log.user?.role && (
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded uppercase">
+                        {log.user.role}
+                      </span>
+                    )}
+                  </div>
+
+                  {log.user?.email && (
+                    <span className="text-slate-400 text-[10px]">
+                      {log.user.email}
                     </span>
                   )}
                 </div>
-
-                {/* Content Area */}
-                {logsLoading ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
-                    <div className="w-5 h-5 border-2 border-[#00a896] border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs font-semibold">Loading log timeline...</span>
-                  </div>
-                ) : taskLogs && taskLogs.length > 0 ? (
-                  <div className="relative pl-5 space-y-3.5 before:absolute before:left-2 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200/90">
-                    {taskLogs.map((log, index) => {
-                      const formattedDate = log.createdAt
-                        ? new Date(log.createdAt).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })
-                        : "—";
-
-                      const isLatest = index === 0;
-
-                      return (
-                        <div key={log.id || index} className="relative group">
-                          {/* Timeline Bullet Ring */}
-                          <div
-                            className={`absolute -left-[21px] top-3.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs transition-all ${isLatest
-                              ? "bg-[#00a896] ring-4 ring-[#00a896]/15 scale-110"
-                              : "bg-slate-300 group-hover:bg-slate-400"
-                              }`}
-                          />
-
-                          {/* Compact Micro-Card */}
-                          <div className="bg-white border border-slate-200/90 rounded-xl p-3 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200">
-
-                            {/* Top Row: Status Badges & Time */}
-                            <div className="flex items-center justify-between gap-2">
-
-                              {/* Status Pills */}
-                              <div className="flex items-center gap-1.5 text-xs font-bold">
-                                {log.oldStatus && (
-                                  <>
-                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold uppercase tracking-wide">
-                                      {log.oldStatus.replace(/_/g, " ")}
-                                    </span>
-                                    <span className="text-slate-300 text-[10px]">➔</span>
-                                  </>
-                                )}
-                                <span className="px-2 py-0.5 bg-teal-50 text-[#00a896] border border-teal-100/80 rounded-md text-[10px] font-bold uppercase tracking-wide">
-                                  {log.newStatus ? log.newStatus.replace(/_/g, " ") : "Updated"}
-                                </span>
-                              </div>
-
-                              {/* Timestamp */}
-                              <span className="text-[10px] font-semibold text-slate-400 shrink-0">
-                                {formattedDate}
-                              </span>
-                            </div>
-
-                            {/* Bottom Row: User Info & Remarks */}
-                            <div className="mt-2 flex items-center justify-between flex-wrap gap-2 text-[11px]">
-                              <div className="flex items-center gap-1.5 text-slate-500">
-                                <span>By</span>
-                                <span className="font-bold text-slate-800">
-                                  {log.user?.name || "System"}
-                                </span>
-                                {log.user?.role && (
-                                  <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded uppercase">
-                                    {log.user.role}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Remarks Block (Clean Compact Bubble) */}
-                            {log.remarks && (
-                              <div className="mt-2 text-[11px] text-slate-600 bg-slate-50/80 rounded-lg p-2 border-l-2 border-[#00a896] leading-relaxed">
-                                <span className="font-semibold text-slate-800">Remarks: </span>
-                                {log.remarks}
-                              </div>
-                            )}
-
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-10 text-slate-400 font-medium text-xs">
-                    No activity logs found for this task.
-                  </div>
-                )}
               </div>
-            )}
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="text-center py-10 text-slate-400 font-medium text-xs">
+        No activity logs found for this task.
+      </div>
+    )}
+  </div>
+)}
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => {

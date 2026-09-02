@@ -495,49 +495,285 @@ const AttendanceTracker = () => {
     }
   };
 
-  // ================= EXCEL DOWNLOAD =================
+// ================= DYNAMIC COLORED EXCEL REPORT (WITH SUNDAYS & HOLIDAYS) =================
   const downloadExcelReport = () => {
-    if (displayLogs.length === 0) {
+    if (!displayLogs || displayLogs.length === 0) {
       toast.info("No Record Found");
       return;
     }
 
-    const excelRows = displayLogs.map((record) => ({
-      "Employee Name":
-        record.employeeName || record.employee?.name || `Employee #${record.employeeId}`,
-      Email: record.employeeEmail || record.employee?.email || "—",
-      Date: formatDateToDDMMYYYY(record.attendanceDate),
-      "Punch In Time": formatIsoTime(record.checkIn),
-      "Punch Out Time": formatIsoTime(record.checkOut),
-      "Working Hours": record.workingHours || (
-        record.workingMinutes !== undefined
+    const firstRow = displayLogs[0] || {};
+    const currentEmp = employeeSummary.find(
+      (item) => String(item.employee?.id) === String(inspectEmpId)
+    );
+
+    const empName =
+      firstRow.employeeName ||
+      firstRow.employee?.name ||
+      currentEmp?.employee?.name ||
+      `Employee #${inspectEmpId}`;
+
+    const empEmail =
+      firstRow.employeeEmail ||
+      firstRow.employee?.email ||
+      currentEmp?.employee?.email ||
+      "—";
+
+    // 1. Shift End: 7:00 PM (19:00) ke baad ka exact overtime calculate karna
+    const calculateRowOvertimeMinutes = (checkOutVal) => {
+      if (!checkOutVal) return 0;
+
+      let outH = 0;
+      let outM = 0;
+
+      if (typeof checkOutVal === "string" && checkOutVal.includes(":") && !checkOutVal.includes("T")) {
+        const parts = checkOutVal.split(":");
+        outH = parseInt(parts[0], 10) || 0;
+        outM = parseInt(parts[1], 10) || 0;
+      } else {
+        try {
+          const d = new Date(checkOutVal);
+          if (!isNaN(d.getTime())) {
+            outH = d.getHours();
+            outM = d.getMinutes();
+          }
+        } catch (e) {
+          return 0;
+        }
+      }
+
+      const totalOutMinutes = outH * 60 + outM;
+      const shiftEndMinutes = 19 * 60; // 7:00 PM = 1140 minutes
+
+      return totalOutMinutes > shiftEndMinutes ? totalOutMinutes - shiftEndMinutes : 0;
+    };
+
+    let totalOtMinutes = 0;
+    const computedLogs = displayLogs.map((log) => {
+      const otMins = calculateRowOvertimeMinutes(log.checkOut);
+      totalOtMinutes += otMins;
+
+      const formattedRowOt =
+        otMins > 0
+          ? `${String(Math.floor(otMins / 60)).padStart(2, "0")}:${String(otMins % 60).padStart(2, "0")}`
+          : "00:00";
+
+      return {
+        ...log,
+        computedOtMinutes: otMins,
+        computedOvertimeStr: formattedRowOt,
+      };
+    });
+
+    const dynamicTotalOvertimeStr =
+      totalOtMinutes > 0
+        ? `${String(Math.floor(totalOtMinutes / 60)).padStart(2, "0")}h ${String(
+            totalOtMinutes % 60
+          ).padStart(2, "0")}m`
+        : "00h 00m";
+
+    // 2. Logs ke status se dynamic counts (Sundays, Holidays, Present, etc.)
+    const statusCounts = computedLogs.reduce((acc, curr) => {
+      const s = (curr.status || "Unknown").trim();
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    }, {});
+
+    // 3. Dynamic Summary Construction
+    const summaryMetrics = [];
+
+    if (filteredSummary && typeof filteredSummary === "object") {
+      Object.entries(filteredSummary).forEach(([key, val]) => {
+        const label = key
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (str) => str.toUpperCase());
+        summaryMetrics.push({
+          rawKey: key.toLowerCase(),
+          label,
+          value: val !== null && val !== undefined ? val : "0",
+        });
+      });
+
+      // Backend summary me agar Sunday / Holiday keys nahi hain toh logs se auto-add
+      Object.entries(statusCounts).forEach(([statusName, count]) => {
+        const sLower = statusName.toLowerCase();
+        if (sLower.includes("sunday") || sLower.includes("holiday")) {
+          const alreadyExists = summaryMetrics.some((m) =>
+            m.label.toLowerCase().includes(sLower)
+          );
+          if (!alreadyExists) {
+            summaryMetrics.push({
+              rawKey: sLower,
+              label: `Total ${statusName}`,
+              value: count,
+            });
+          }
+        }
+      });
+
+      summaryMetrics.push({
+        rawKey: "overtime",
+        label: "Total Overtime (After 7 PM)",
+        value: dynamicTotalOvertimeStr,
+      });
+    } else {
+      summaryMetrics.push({
+        rawKey: "records",
+        label: "Total Records",
+        value: computedLogs.length,
+      });
+
+      Object.entries(statusCounts).forEach(([statusName, count]) => {
+        summaryMetrics.push({
+          rawKey: statusName.toLowerCase(),
+          label: `Total ${statusName}`,
+          value: count,
+        });
+      });
+
+      summaryMetrics.push({
+        rawKey: "overtime",
+        label: "Total Overtime (After 7 PM)",
+        value: dynamicTotalOvertimeStr,
+      });
+    }
+
+    // 4. Highlight Colors Palette (Including Sundays & Holidays)
+    const getThemeColor = (keyOrStatus) => {
+      const val = (keyOrStatus || "").toLowerCase();
+      if (val.includes("absent")) return { bg: "#FFEBEB", color: "#C53030", border: "#FEB2B2" }; // Red
+      if (val.includes("late")) return { bg: "#FEF3C7", color: "#B45309", border: "#FCD34D" }; // Amber
+      if (val.includes("half")) return { bg: "#DBEAFE", color: "#1D4ED8", border: "#93C5FD" }; // Blue
+      if (val.includes("overtime")) return { bg: "#F3E8FF", color: "#6B21A8", border: "#D8B4FE" }; // Purple
+      if (val.includes("sunday")) return { bg: "#F1F5F9", color: "#475569", border: "#CBD5E1" }; // Slate/Grey
+      if (val.includes("holiday")) return { bg: "#FDF2F8", color: "#BE185D", border: "#FBCFE8" }; // Pink/Rose
+      if (val.includes("present")) return { bg: "#E6FFFA", color: "#007A6C", border: "#81E6D9" }; // Teal/Green
+      return { bg: "#F8FAFC", color: "#334155", border: "#CBD5E1" };
+    };
+
+    // 5. Excel XML Document Construction
+    let tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+        <style>
+          td, th { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; }
+        </style>
+      </head>
+      <body>
+        <table border="0" cellpadding="6" cellspacing="0">
+          <tr>
+            <td colspan="9" style="background-color: #00a896; color: #ffffff; font-size: 14pt; font-weight: bold; text-align: center; padding: 10px;">
+              MONTHLY ATTENDANCE & SUMMARY REPORT
+            </td>
+          </tr>
+          <tr>
+            <td colspan="4" style="font-weight: bold; color: #1e293b;">Employee: ${empName}</td>
+            <td colspan="5" style="font-weight: bold; color: #1e293b; text-align: right;">Month / Year: ${selectedMonth}/${selectedYear}</td>
+          </tr>
+          <tr>
+            <td colspan="4" style="color: #64748b;">Email: ${empEmail}</td>
+            <td colspan="5" style="color: #64748b; text-align: right;">Office Shift: 10:00 AM - 07:00 PM</td>
+          </tr>
+          <tr><td colspan="9"></td></tr>
+
+          <!-- HIGHLIGHTED SUMMARY SECTION -->
+          <tr>
+            <td colspan="4" style="background-color: #0f172a; color: #ffffff; font-weight: bold; padding: 8px;">
+              PERFORMANCE & ATTENDANCE SUMMARY
+            </td>
+            <td colspan="5"></td>
+          </tr>
+          <tr style="background-color: #f1f5f9; font-weight: bold;">
+            <td colspan="2" style="border: 1px solid #cbd5e1;">Metric Description</td>
+            <td colspan="2" style="border: 1px solid #cbd5e1; text-align: center;">Summary Value</td>
+            <td colspan="5"></td>
+          </tr>
+    `;
+
+    summaryMetrics.forEach((metric) => {
+      const theme = getThemeColor(metric.rawKey);
+      tableHtml += `
+        <tr>
+          <td colspan="2" style="background-color: ${theme.bg}; color: ${theme.color}; border: 1px solid ${theme.border}; font-weight: 600;">
+            ${metric.label}
+          </td>
+          <td colspan="2" style="background-color: ${theme.bg}; color: ${theme.color}; border: 1px solid ${theme.border}; font-weight: bold; text-align: center;">
+            ${metric.value}
+          </td>
+          <td colspan="5"></td>
+        </tr>
+      `;
+    });
+
+    tableHtml += `
+          <tr><td colspan="9"></td></tr>
+          <tr><td colspan="9"></td></tr>
+
+          <!-- DAILY ATTENDANCE LEDGER HEADERS -->
+          <tr style="background-color: #1e293b; color: #ffffff; font-weight: bold; text-align: left;">
+            <th style="padding: 8px; border: 1px solid #475569;">Date</th>
+            <th style="padding: 8px; border: 1px solid #475569;">Employee Name</th>
+            <th style="padding: 8px; border: 1px solid #475569;">Email</th>
+            <th style="padding: 8px; border: 1px solid #475569;">Punch In</th>
+            <th style="padding: 8px; border: 1px solid #475569;">Punch Out</th>
+            <th style="padding: 8px; border: 1px solid #475569;">Working Hours</th>
+            <th style="padding: 8px; border: 1px solid #475569; text-align: center;">Overtime (> 7:00 PM)</th>
+            <th style="padding: 8px; border: 1px solid #475569; text-align: center;">Status</th>
+            <th style="padding: 8px; border: 1px solid #475569;">Remarks</th>
+          </tr>
+    `;
+
+    computedLogs.forEach((record) => {
+      const workingHoursDisplay =
+        record.workingHours ||
+        (record.workingMinutes !== undefined
           ? record.workingMinutes > 0
             ? `${Math.floor(record.workingMinutes / 60)}h ${record.workingMinutes % 60}m`
             : "00h 00m"
-          : "—"
-      ),
-      "IP Scope Address": record.checkInIp || "—",
-      "Remarks Context": record.remarks || "No remarks",
-      "Current Status": record.status || "Present",
-    }));
+          : "—");
 
-    const worksheet = XLSX.utils.json_to_sheet(excelRows);
-    const workbook = XLSX.utils.book_new();
-    const workbookName = "Attendance Details";
-    XLSX.utils.book_append_sheet(workbook, worksheet, workbookName);
+      const statusTheme = getThemeColor(record.status);
+      const isOt = record.computedOtMinutes > 0;
+      const otBg = isOt ? "#F3E8FF" : "#ffffff";
+      const otColor = isOt ? "#6B21A8" : "#64748b";
 
-    const currentEmp = employeeSummary.find(
-      (item) => String(item.employee.id) === String(inspectEmpId)
-    );
-    const empName = currentEmp
-      ? currentEmp.employee.name.replace(/\s+/g, "_")
-      : "Employee";
+      tableHtml += `
+        <tr>
+          <td style="border: 1px solid #e2e8f0; font-weight: 600;">${formatDateToDDMMYYYY(record.attendanceDate)}</td>
+          <td style="border: 1px solid #e2e8f0;">${record.employeeName || record.employee?.name || empName}</td>
+          <td style="border: 1px solid #e2e8f0; color: #64748b;">${record.employeeEmail || record.employee?.email || empEmail}</td>
+          <td style="border: 1px solid #e2e8f0; color: #007A6C; font-weight: 600;">${formatIsoTime(record.checkIn)}</td>
+          <td style="border: 1px solid #e2e8f0;">${formatIsoTime(record.checkOut)}</td>
+          <td style="border: 1px solid #e2e8f0; font-weight: 600;">${workingHoursDisplay}</td>
+          <td style="border: 1px solid #e2e8f0; background-color: ${otBg}; color: ${otColor}; font-weight: ${isOt ? "bold" : "normal"}; text-align: center;">
+            ${record.computedOvertimeStr}
+          </td>
+          <td style="border: 1px solid #e2e8f0; background-color: ${statusTheme.bg}; color: ${statusTheme.color}; font-weight: bold; text-align: center;">
+            ${record.status || "—"}
+          </td>
+          <td style="border: 1px solid #e2e8f0; font-style: italic; color: #64748b;">${record.remarks || "—"}</td>
+        </tr>
+      `;
+    });
 
-    XLSX.writeFile(
-      workbook,
-      `Attendance_Detailed_${empName}_M${selectedMonth}_Y${selectedYear}.xlsx`
-    );
-    toast.success("Detailed Excel sheet downloaded successfully!");
+    tableHtml += `
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHtml], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = downloadUrl;
+    downloadLink.download = `Attendance_${empName.replace(/\s+/g, "_")}_${selectedMonth}_${selectedYear}.xls`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(downloadUrl);
+
+    toast.success("Excel report with Sundays and Holidays downloaded!");
   };
 
   return (
@@ -980,8 +1216,8 @@ const AttendanceTracker = () => {
                       key={i}
                       onClick={() => setLedgerCurrentPage(i + 1)}
                       className={`w-7 h-7 flex items-center justify-center rounded text-xs font-semibold transition-colors ${ledgerCurrentPage === i + 1
-                          ? "bg-[#00a896] hover:bg-[#009282] text-white"
-                          : "text-slate-600 hover:bg-slate-50 border hover:border-slate-200"
+                        ? "bg-[#00a896] hover:bg-[#009282] text-white"
+                        : "text-slate-600 hover:bg-slate-50 border hover:border-slate-200"
                         }`}
                     >
                       {i + 1}

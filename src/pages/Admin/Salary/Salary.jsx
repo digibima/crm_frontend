@@ -22,6 +22,7 @@ import {
   FiTrash2,
   FiEdit2,
   FiSave,
+  FiRefreshCw,
 } from "react-icons/fi";
 
 const SalaryDashboard = () => {
@@ -59,10 +60,12 @@ const SalaryDashboard = () => {
   const [viewRulesList, setViewRulesList] = useState([]);
   const [isCustomRule, setIsCustomRule] = useState(false);
 
-
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [pdfEmp, setPdfEmp] = useState(null);
   const payslipPdfRef = useRef(null);
+
+  // Row generate action loader tracking
+  const [generatingEmpId, setGeneratingEmpId] = useState(null);
 
   // Filters State
   const [filterMonth, setFilterMonth] = useState("8");
@@ -123,6 +126,32 @@ const SalaryDashboard = () => {
       toast.error("Error fetching salary dashboard details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Action button: Individual row salary generate
+  const handleGenerateSalaryRow = async (emp) => {
+    try {
+      setGeneratingEmpId(emp.employee_id);
+      const payload = {
+        month: Number(emp.month || filterMonth),
+        year: Number(emp.year || filterYear),
+      };
+
+      const generateApiUrl = "/api/admin/salary/generate";
+      const response = await CallApi(generateApiUrl, "POST", payload);
+
+      if (response && (response.status || response.success)) {
+        toast.success(response?.message || "Salary generated successfully!");
+        fetchDashboardData();
+      } else {
+        toast.error(response?.message || "Failed to generate salary");
+      }
+    } catch (error) {
+      console.error("Error generating salary:", error);
+      toast.error("Something went wrong while generating salary");
+    } finally {
+      setGeneratingEmpId(null);
     }
   };
 
@@ -690,6 +719,7 @@ const SalaryDashboard = () => {
                 <option value="Generated">Generated</option>
                 <option value="Paid">Paid</option>
                 <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
               </select>
               <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
                 <FiChevronDown size={14} />
@@ -804,13 +834,35 @@ const SalaryDashboard = () => {
                           {formatCurrency(item.net_salary)}
                         </td>
                         <td className="py-4 px-4">
-                          <span className="text-[11px] px-2.5 py-1 rounded-lg font-bold tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-100">
-                            {item.status}
+                          <span
+                            className={`text-[11px] px-2.5 py-1 rounded-lg font-bold tracking-wide border ${
+                              (item.status || "Pending").toLowerCase() === "paid"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                : (item.status || "Pending").toLowerCase() === "generated"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-100"
+                                : "bg-amber-50 text-amber-700 border-amber-100"
+                            }`}
+                          >
+                            {item.status || "Pending"}
                           </span>
                         </td>
 
                         <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                            {/* Generate Salary Action */}
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateSalaryRow(item)}
+                              disabled={generatingEmpId === item.employee_id}
+                              title="Generate Salary"
+                              className="p-1.5 hover:text-emerald-600 hover:bg-emerald-50 text-slate-500 rounded-lg transition cursor-pointer disabled:opacity-50"
+                            >
+                              <FiRefreshCw
+                                size={15}
+                                className={generatingEmpId === item.employee_id ? "animate-spin text-emerald-600" : ""}
+                              />
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => handleDownloadPayslip(item)}
@@ -915,8 +967,16 @@ const SalaryDashboard = () => {
                     </div>
                   </div>
                 </div>
-                <span className="text-xs px-2.5 py-1 rounded-lg font-bold tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  {currentEmp.status}
+                <span
+                  className={`text-xs px-2.5 py-1 rounded-lg font-bold tracking-wide border ${
+                    (currentEmp.status || "Pending").toLowerCase() === "paid"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                      : (currentEmp.status || "Pending").toLowerCase() === "generated"
+                      ? "bg-indigo-50 text-indigo-700 border-indigo-100"
+                      : "bg-amber-50 text-amber-700 border-amber-100"
+                  }`}
+                >
+                  {currentEmp.status || "Pending"}
                 </span>
               </div>
 
@@ -1442,13 +1502,11 @@ const SalaryDashboard = () => {
         </div>
       </Modal>
 
-     
       <div className="hidden">
         <div
           ref={payslipPdfRef}
           className="relative p-8 bg-white text-slate-800 font-sans text-sm min-h-[980px] flex flex-col justify-between overflow-hidden"
         >
-       
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] z-0">
             <img
               src="/profile/policypdf-watermark.png"
@@ -1457,9 +1515,7 @@ const SalaryDashboard = () => {
             />
           </div>
 
-        
           <div className="relative z-10 space-y-6">
-          
             <div className="flex justify-between items-center border-b-2 border-[#0f4c81] pb-5">
               <div>
                 <img
@@ -1477,12 +1533,11 @@ const SalaryDashboard = () => {
                   Payslip: Month {pdfEmp?.month || filterMonth}, {pdfEmp?.year || filterYear}
                 </span>
                 <p className="text-[10px] text-slate-400 font-medium mt-1">
-                  Issued Date: {new Date().toLocaleDateString('en-IN')}
+                  Issued Date: {new Date().toLocaleDateString("en-IN")}
                 </p>
               </div>
             </div>
 
-       
             <div className="grid grid-cols-2 gap-4 bg-slate-50/90 backdrop-blur-sm p-4 rounded-xl border border-slate-200 text-xs">
               <div className="space-y-1.5">
                 <p className="text-slate-500">
@@ -1509,7 +1564,7 @@ const SalaryDashboard = () => {
                 <p className="text-slate-500">
                   Status:{" "}
                   <strong className="text-emerald-600 font-bold uppercase">
-                    {pdfEmp?.status || "Generated"}
+                    {pdfEmp?.status || "Pending"}
                   </strong>
                 </p>
                 <p className="text-slate-500">
@@ -1528,7 +1583,6 @@ const SalaryDashboard = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-6 pt-2">
-        
               <div className="bg-white/80 p-4 rounded-xl border border-slate-200">
                 <h4 className="font-bold text-[#20bfa9] border-b border-slate-200 pb-1.5 mb-3 text-xs uppercase tracking-wider">
                   Earnings

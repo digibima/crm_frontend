@@ -53,12 +53,14 @@ const EmployeeSalary = () => {
   const hasStructure = salaryData?.hasStructure ?? true;
   const summary = salaryData?.summary || {};
   const currentMonthData = summary.currentMonth || {};
-  const historyList = salaryData?.history || [];
-  const currentMonthName = salaryData?.currentMonth || "Current Month";
+
+  // FIX 1: API me key 'monthlyHistory' hai, 'history' nahi
+  const historyList = salaryData?.monthlyHistory || salaryData?.history || [];
+  const currentMonthName = salaryData?.currentMonth || currentMonthData?.monthName || "Current Month";
 
   // Target Achievement % Calculation
-  const basicSalaryNum = parseFloat(summary.basicSalary || 0);
-  const targetNum = parseFloat(summary.monthlyTarget || 0);
+  const basicSalaryNum = parseFloat(summary.basicSalary || currentMonthData.basicSalary || 0);
+  const targetNum = parseFloat(summary.monthlyTarget || currentMonthData.target || 0);
   const achievedNum = parseFloat(currentMonthData.achievedPremium || 0);
   const targetPercent =
     targetNum > 0 ? Math.min(100, Math.round((achievedNum / targetNum) * 100)) : 0;
@@ -102,6 +104,7 @@ const EmployeeSalary = () => {
         </div>
       </div>
 
+      {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-teal-50 text-[#00a896] flex items-center justify-center shrink-0">
@@ -129,7 +132,7 @@ const EmployeeSalary = () => {
               Basic Salary
             </p>
             <h3 className="text-xl font-bold text-slate-900 mt-0.5">
-              {formatCurrency(summary.basicSalary)}
+              {formatCurrency(summary.basicSalary || currentMonthData.basicSalary)}
             </h3>
             <span className="text-[10px] font-semibold text-slate-400 inline-block mt-1">
               Fixed Monthly
@@ -154,7 +157,6 @@ const EmployeeSalary = () => {
           </div>
         </div>
 
-        {/* Card 4: Late Deductions */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
             <FiClock size={22} />
@@ -175,7 +177,7 @@ const EmployeeSalary = () => {
 
       {/* 2. MAIN SECTION: BREAKDOWN & TARGET PERFORMANCE */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT: DETAILED SALARY BREAKDOWN (7 Cols) */}
+        {/* LEFT: DETAILED SALARY BREAKDOWN */}
         <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
@@ -200,7 +202,7 @@ const EmployeeSalary = () => {
             <div className="flex justify-between text-xs text-slate-600 font-medium">
               <span>Basic Salary</span>
               <span className="font-semibold text-slate-800">
-                {formatCurrency(summary.basicSalary)}
+                {formatCurrency(summary.basicSalary || currentMonthData.basicSalary)}
               </span>
             </div>
             <div className="flex justify-between text-xs text-slate-600 font-medium">
@@ -253,6 +255,7 @@ const EmployeeSalary = () => {
           </div>
         </div>
 
+        {/* RIGHT: TARGET PROGRESS */}
         <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -277,7 +280,7 @@ const EmployeeSalary = () => {
                     Target Goal
                   </p>
                   <p className="text-sm font-bold text-slate-700 mt-0.5">
-                    {formatCurrency(summary.monthlyTarget)}
+                    {formatCurrency(summary.monthlyTarget || currentMonthData.target)}
                   </p>
                 </div>
               </div>
@@ -323,6 +326,7 @@ const EmployeeSalary = () => {
         </div>
       </div>
 
+      {/* 3. PAST SALARY HISTORY */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-800 tracking-tight">
@@ -348,49 +352,56 @@ const EmployeeSalary = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-              {historyList.length === 0 && (
+              {historyList.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center py-8 text-gray-400 font-medium">
                     No past salary records available.
                   </td>
                 </tr>
+              ) : (
+                historyList.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80 transition">
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      {/* FIX 2: item.monthName use kiya instead of numeric item.month */}
+                      {item.monthName || item.month}
+                    </td>
+                    <td className="py-3.5 px-4 font-medium text-slate-700">
+                      {formatCurrency(item.basicSalary)}
+                    </td>
+                    <td className="py-3.5 px-4 text-emerald-600 font-bold">
+                      {formatCurrency(item.incentive)}
+                    </td>
+                    <td className="py-3.5 px-4 text-rose-500 font-bold">
+                      {formatCurrency(item.lateDeduction)}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700 font-medium">
+                      {formatCurrency(item.bonus)}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      {formatCurrency(item.netSalary)}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`text-[10px] px-2.5 py-0.5 rounded-lg font-bold tracking-wide border ${
+                          item.status === "Pending"
+                            ? "bg-amber-50 text-amber-700 border-amber-100"
+                            : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                        }`}
+                      >
+                        {item.status || "Generated"}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        title="Download Payslip"
+                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                      >
+                        <FiDownload size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
-
-              {historyList.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/80 transition">
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
-                    {item.month}
-                  </td>
-                  <td className="py-3.5 px-4 font-medium text-slate-700">
-                    {formatCurrency(item.basicSalary)}
-                  </td>
-                  <td className="py-3.5 px-4 text-emerald-600 font-bold">
-                    {formatCurrency(item.incentive)}
-                  </td>
-                  <td className="py-3.5 px-4 text-rose-500 font-bold">
-                    {formatCurrency(item.lateDeduction)}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-700 font-medium">
-                    {formatCurrency(item.bonus)}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
-                    {formatCurrency(item.netSalary)}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="text-[10px] px-2.5 py-0.5 rounded-lg font-bold tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-100">
-                      {item.status || "Generated"}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button
-                      title="Download Payslip"
-                      className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                    >
-                      <FiDownload size={15} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>
