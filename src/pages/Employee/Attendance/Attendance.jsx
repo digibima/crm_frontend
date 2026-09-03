@@ -5,7 +5,7 @@ import {
     FaSignInAlt, FaSignOutAlt, FaTimesCircle, FaClock, FaAdjust,
     FaPaperPlane, FaUmbrellaBeach, FaNotesMedical
 } from "react-icons/fa";
-import { FiActivity, FiFileText, FiCheckCircle } from "react-icons/fi";
+import { FiFileText, FiCheckCircle } from "react-icons/fi";
 import { CallApi } from "../../../api";
 import constant from "../../../env";
 import { toast } from "react-toastify";
@@ -17,6 +17,7 @@ export default function MyAttendance() {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const [attendanceData, setAttendanceData] = useState([]);
+    const [calendarData, setCalendarData] = useState([]);
     const [overviewStats, setOverviewStats] = useState({
         presentDays: "00",
         absentDays: "00",
@@ -40,7 +41,6 @@ export default function MyAttendance() {
 
     // ================= NEW LEAVE STATES =================
     const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-
     const [leaveType, setLeaveType] = useState("1");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -51,7 +51,7 @@ export default function MyAttendance() {
     const [halfDayType, setHalfDayType] = useState("first_half");
     
     const [leaveLoading, setLeaveLoading] = useState(false);
-    const [leaveLogLoading, setLeaveLogLoading] = useState(true); // Leave Log Loader
+    const [leaveLogLoading, setLeaveLogLoading] = useState(true);
 
     // ================= ATTENDANCE CORRECTION STATES =================
     const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
@@ -62,7 +62,7 @@ export default function MyAttendance() {
     const [correctionLoading, setCorrectionLoading] = useState(false);
 
     const [leaveBalances, setLeaveBalances] = useState([]);
-    const [leaveApplications, setLeaveApplications] = useState([]); // अब यह API से लाइव लोड होगा
+    const [leaveApplications, setLeaveApplications] = useState([]);
 
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
@@ -116,7 +116,7 @@ export default function MyAttendance() {
 
     const parseLogTime = (isoString) => {
         if (!isoString) return "—";
-        if (!isoString.includes("T")) return isoString;
+        if (!isoString.includes("T")) return formatStringTime(isoString);
         try {
             const dateObj = new Date(isoString);
             return dateObj.toLocaleTimeString("en-US", {
@@ -129,13 +129,20 @@ export default function MyAttendance() {
         }
     };
 
+    // 24-hour time string ("19:00") ko 12-hour format ("07:00 PM") me convert karta hai
     const formatStringTime = (timeStr) => {
-        if (!timeStr) return "—";
-        const [hours, minutes] = timeStr.split(":");
-        const hourNum = parseInt(hours, 10);
-        const ampm = hourNum >= 12 ? "PM" : "AM";
-        const adjustedHour = hourNum % 12 || 12;
-        return `${String(adjustedHour).padStart(2, "0")}:${minutes} ${ampm}`;
+        if (!timeStr || timeStr === "—") return "—";
+        try {
+            const parts = timeStr.trim().split(":");
+            if (parts.length < 2) return timeStr;
+            const hourNum = parseInt(parts[0], 10);
+            const minutes = parts[1].slice(0, 2);
+            const ampm = hourNum >= 12 ? "PM" : "AM";
+            const adjustedHour = hourNum % 12 || 12;
+            return `${String(adjustedHour).padStart(2, "0")}:${minutes} ${ampm}`;
+        } catch (e) {
+            return timeStr;
+        }
     };
 
     const fetchTodayStatus = async () => {
@@ -169,29 +176,12 @@ export default function MyAttendance() {
             setLoading(true);
             setError(null);
 
-            const apiUrl = constant.API.EMPLOYEE.ATTENDANCE.HISTORY;
+            const apiUrl = constant.API?.EMPLOYEE?.ATTENDANCE?.HISTORY || "/api/employee/attendance/history";
             const response = await CallApi(apiUrl, "GET");
 
             if (response && response.status && response.data) {
                 const historyLog = response.data.data || [];
                 setAttendanceData(historyLog);
-
-                let present = 0, absent = 0, late = 0, half = 0;
-                historyLog.forEach((log) => {
-                    const currentStatus = log.status ? log.status.toLowerCase() : "";
-                    if (currentStatus === "present") present++;
-                    else if (currentStatus === "absent") absent++;
-                    else if (currentStatus === "late") late++;
-                    else if (currentStatus === "half_day" || currentStatus === "half day") half++;
-                });
-
-                setOverviewStats({
-                    presentDays: String(present).padStart(2, "0"),
-                    absentDays: String(absent).padStart(2, "0"),
-                    lateDays: String(late).padStart(2, "0"),
-                    halfDays: String(half).padStart(2, "0"),
-                    totalWorkingDays: String(historyLog.length).padStart(2, "0")
-                });
             } else {
                 setAttendanceData([]);
             }
@@ -204,14 +194,42 @@ export default function MyAttendance() {
         }
     };
 
-    // ================= UPDATE: DASHBOARD API INTEGRATION =================
+    // ================= CALENDAR API INTEGRATION =================
+    const fetchCalendarData = async (targetDate = currentDate) => {
+        try {
+            const month = targetDate.getMonth() + 1;
+            const year = targetDate.getFullYear();
+            const apiUrl = `/api/employee/attendance/calendar?month=${month}&year=${year}`;
+            
+            const response = await CallApi(apiUrl, "GET");
+            if (response && response.status && response.data) {
+                setCalendarData(response.data.calendar || []);
+
+                if (response.data.summary) {
+                    const { present = 0, absent = 0, late = 0, halfDay = 0 } = response.data.summary;
+                    setOverviewStats({
+                        presentDays: String(present).padStart(2, "0"),
+                        absentDays: String(absent).padStart(2, "0"),
+                        lateDays: String(late).padStart(2, "0"),
+                        halfDays: String(halfDay).padStart(2, "0"),
+                        totalWorkingDays: String((response.data.calendar || []).length).padStart(2, "0")
+                    });
+                }
+            } else {
+                setCalendarData([]);
+            }
+        } catch (err) {
+            console.error("Calendar API sync exception:", err);
+            toast.error("Failed to load attendance calendar.");
+        }
+    };
+
     const fetchLeaveBalances = async () => {
         try {
             setLeaveLogLoading(true);
             const response = await CallApi("/api/employee/leaves/dashboard", "GET");
 
             if (response && response.status && response.data) {
-                // 1. Leave Balances Map करना
                 if (response.data.leaveTypes) {
                     const mappedBalances = response.data.leaveTypes.map((leave) => {
                         let color = "text-slate-600 bg-slate-50";
@@ -239,14 +257,12 @@ export default function MyAttendance() {
                     setLeaveBalances(mappedBalances);
                 }
 
-            
                 if (response.data.requests) {
                     const formatOpt = { day: "2-digit", month: "short", year: "numeric" };
                     const mappedRequests = response.data.requests.map((req) => {
                         const fromD = new Date(req.fromDate).toLocaleDateString("en-US", formatOpt);
                         const toD = new Date(req.toDate).toLocaleDateString("en-US", formatOpt);
                         
-                        // अगर Single Day Half Day लीव है तो ड्यूरेशन में दिखाना
                         const durationStr = fromD === toD 
                             ? `${fromD} ${req.isHalfDay ? `(${req.halfDayType === 'first_half' ? '1st Half' : '2nd Half'})` : ''}`
                             : `${fromD} - ${toD}`;
@@ -273,11 +289,16 @@ export default function MyAttendance() {
         fetchTodayStatus();
         fetchAttendanceHistory();
         fetchLeaveBalances();
+        fetchCalendarData(currentDate);
     };
 
     useEffect(() => {
         syncDashboardData();
     }, []);
+
+    useEffect(() => {
+        fetchCalendarData(currentDate);
+    }, [currentDate]);
 
     const handlePunchAction = async () => {
         if (punchLoading) return;
@@ -318,7 +339,6 @@ export default function MyAttendance() {
             }
         } catch (err) {
             console.error("Punch system failure:", err);
-            
             if (err.code === 1) {
                 toast.error("Location permission denied. Please allow location access.");
             } else if (err.code === 3) {
@@ -364,8 +384,6 @@ export default function MyAttendance() {
                 setEndDate("");
                 setIsHalfDay(false);
                 setHalfDayType("first_half");
-
-                // डेटा री-सिंक करें ताकि नया लॉग तुरंत टेबल में दिखे
                 fetchLeaveBalances();
             } else {
                 toast.error(response?.message || "Failed to submit leave request.");
@@ -387,7 +405,6 @@ export default function MyAttendance() {
 
         try {
             setCorrectionLoading(true);
-
             const payload = {
                 attendanceId: selectedCalendarDate?.log?.id || null,
                 requestType: requestType,
@@ -458,17 +475,27 @@ export default function MyAttendance() {
         return daySlots;
     };
 
-    const getDayStatusDot = (fullDateStr) => {
-        if (!fullDateStr) return null;
-        const logMatch = attendanceData.find(log => log.attendanceDate === fullDateStr);
-        if (!logMatch) return null;
-
-        const status = logMatch.status ? logMatch.status.toLowerCase() : "";
-        if (status === "present") return "bg-[#00a896]";
-        if (status === "absent") return "bg-rose-500";
-        if (status === "late") return "bg-amber-500";
-        if (status === "half_day" || status === "half day") return "bg-blue-500";
-        return null;
+    const getCorporateStatusMeta = (status) => {
+        const s = (status || "").toLowerCase();
+        if (s.includes("present")) {
+            return { short: "P", badge: "bg-emerald-50 text-emerald-700 border-emerald-200", box: "hover:border-emerald-300" };
+        }
+        if (s.includes("late")) {
+            return { short: "L", badge: "bg-amber-50 text-amber-700 border-amber-200", box: "hover:border-amber-300" };
+        }
+        if (s.includes("absent")) {
+            return { short: "A", badge: "bg-rose-50 text-rose-700 border-rose-200", box: "hover:border-rose-300" };
+        }
+        if (s.includes("half")) {
+            return { short: "HD", badge: "bg-blue-50 text-blue-700 border-blue-200", box: "hover:border-blue-300" };
+        }
+        if (s.includes("sunday") || s.includes("off")) {
+            return { short: "WO", badge: "bg-slate-100 text-slate-600 border-slate-200", box: "bg-slate-50/50 hover:border-slate-300" };
+        }
+        if (s.includes("holiday")) {
+            return { short: "H", badge: "bg-purple-50 text-purple-700 border-purple-200", box: "hover:border-purple-300" };
+        }
+        return { short: "—", badge: "bg-slate-100 text-slate-500 border-slate-200", box: "hover:border-slate-300" };
     };
 
     const getStatusStyle = (status) => {
@@ -479,6 +506,8 @@ export default function MyAttendance() {
             return "bg-rose-50 text-rose-700 border-rose-100";
         } else if (formatted.includes("late") || formatted.includes("pending")) {
             return "bg-amber-50 text-amber-700 border-amber-100";
+        } else if (formatted.includes("sunday") || formatted.includes("holiday")) {
+            return "bg-purple-50 text-purple-700 border-purple-100";
         }
         return "bg-slate-50 text-slate-700 border-slate-200";
     };
@@ -570,55 +599,104 @@ export default function MyAttendance() {
                         </div>
                     </div>
 
+                    {/* ================= CORPORATE ATTENDANCE CALENDAR ================= */}
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5">
                         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
-                            <h3 className="text-sm font-bold text-slate-900 tracking-tight">Attendance Calendar</h3>
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Attendance Roster Calendar</h3>
+                                <p className="text-[11px] text-slate-400 font-medium">Daily swipe logs, shift timings & roster status</p>
+                            </div>
                             <div className="flex items-center gap-2">
-                                <button onClick={handlePrevMonth} className="p-1.5 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50"><FaChevronLeft size={10} /></button>
-                                <span className="text-xs font-semibold px-2.5 py-1 border border-slate-200 rounded-lg bg-white text-slate-600 flex items-center gap-1 uppercase tracking-wider">
-                                    <FaCalendarAlt className="text-slate-400" /> {currentDate.toLocaleString("en-US", { month: "short", year: "numeric" })}
+                                <button onClick={handlePrevMonth} className="p-1.5 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer"><FaChevronLeft size={10} /></button>
+                                <span className="text-xs font-semibold px-2.5 py-1 border border-slate-200 rounded-lg bg-white text-slate-700 flex items-center gap-1.5 tracking-wider">
+                                    <FaCalendarAlt className="text-[#00a896]" /> {currentDate.toLocaleString("en-US", { month: "short", year: "numeric" })}
                                 </span>
-                                <button onClick={handleNextMonth} className="p-1.5 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50"><FaChevronRight size={10} /></button>
-                                <button onClick={handleResetToToday} className="text-xs font-semibold px-3 py-1 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50">Today</button>
+                                <button onClick={handleNextMonth} className="p-1.5 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer"><FaChevronRight size={10} /></button>
+                                <button onClick={handleResetToToday} className="text-xs font-semibold px-3 py-1 border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer">Today</button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-7 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center border-b pb-2 mb-2">
+                        {/* Corporate Status Legend Guide */}
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] pb-3 mb-3 border-b border-slate-100 text-slate-600 font-medium">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Legend:</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Present (P)</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Late (L)</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"></span> Absent (A)</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Half Day (HD)</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400"></span> Weekly Off (WO)</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Holiday (H)</span>
+                        </div>
+
+                        {/* Weekday Labels Header */}
+                        <div className="grid grid-cols-7 gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center pb-2">
                             <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
                         </div>
 
-                        <div className="grid grid-cols-7 gap-y-3 text-xs sm:text-sm font-medium text-center">
+                        {/* Corporate Calendar Grid */}
+                        <div className="grid grid-cols-7 gap-1.5">
                             {calendarDays.map((slot, index) => {
-                                const dotColorClass = getDayStatusDot(slot.fullDateStr);
                                 const isTodayDate = slot.fullDateStr === todayFormattedStr;
-                                const dayLog = attendanceData.find(log => log.attendanceDate === slot.fullDateStr);
+                                const dayCalendarLog = calendarData.find(item => item.date === slot.fullDateStr);
+                                const meta = getCorporateStatusMeta(dayCalendarLog?.status);
+
+                                if (!slot.isCurrentMonth) {
+                                    return (
+                                        <div
+                                            key={index}
+                                            className="min-h-[72px] sm:min-h-[82px] border border-dashed border-slate-100 rounded-xl p-1.5 bg-slate-50/30 opacity-40 select-none"
+                                        >
+                                            <span className="text-[11px] font-bold text-slate-300">{slot.day}</span>
+                                        </div>
+                                    );
+                                }
 
                                 return (
                                     <div
                                         key={index}
                                         onClick={() => {
-                                            if (slot.isCurrentMonth) {
-                                                setSelectedCalendarDate({
-                                                    ...slot,
-                                                    log: dayLog || { status: "No Record / Absent", checkIn: "—", checkOut: "—" }
-                                                });
-                                                setIsDayDetailsOpen(true);
-                                            }
+                                            setSelectedCalendarDate({
+                                                ...slot,
+                                                log: dayCalendarLog || { status: "No Record / Absent", checkIn: "—", checkOut: "—" }
+                                            });
+                                            setIsDayDetailsOpen(true);
                                         }}
-                                        className={`py-1 flex flex-col items-center justify-center relative min-h-[42px] rounded-xl transition-all ${slot.isCurrentMonth
-                                            ? 'cursor-pointer hover:bg-slate-100'
-                                            : 'text-slate-300 opacity-40 pointer-events-none'
-                                            }`}
+                                        className={`min-h-[72px] sm:min-h-[82px] border rounded-xl p-1.5 flex flex-col justify-between transition-all duration-150 cursor-pointer bg-white ${
+                                            isTodayDate
+                                                ? "border-[#00a896] ring-1 ring-[#00a896]/30 shadow-xs"
+                                                : "border-slate-200/80 hover:shadow-xs " + meta.box
+                                        }`}
                                     >
-                                        <span className={`w-7 h-7 flex items-center justify-center rounded-xl transition ${isTodayDate
-                                            ? "bg-[#00a896] text-white font-bold"
-                                            : !slot.isCurrentMonth ? "text-slate-300" : "text-slate-700"
+                                        {/* Top Line: Date number & Corporate status chip */}
+                                        <div className="flex items-center justify-between">
+                                            <span className={`text-[11px] sm:text-xs font-bold leading-none ${
+                                                isTodayDate ? "text-[#00a896]" : "text-slate-700"
                                             }`}>
-                                            {slot.day}
-                                        </span>
-                                        {slot.isCurrentMonth && dotColorClass && !isTodayDate && (
-                                            <span className={`w-1.5 h-1.5 rounded-full ${dotColorClass} absolute bottom-0`} />
-                                        )}
+                                                {slot.day}
+                                            </span>
+                                            {dayCalendarLog?.status && (
+                                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border leading-none tracking-tight ${meta.badge}`}>
+                                                    {meta.short}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Middle/Bottom: Timings & Worked Hours */}
+                                        <div className="space-y-0.5">
+                                            {dayCalendarLog?.checkIn ? (
+                                                <>
+                                                    <p className="text-[9px] sm:text-[10px] text-slate-600 font-semibold truncate leading-tight">
+                                                        {formatStringTime(dayCalendarLog.checkIn)} - {formatStringTime(dayCalendarLog.checkOut)}
+                                                    </p>
+                                                    <p className="text-[9px] text-[#00a896] font-bold leading-tight">
+                                                        {dayCalendarLog.workingHours || "00:00"}
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <p className="text-[9px] text-slate-400 font-medium truncate leading-tight">
+                                                    {dayCalendarLog?.status || "—"}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -662,7 +740,6 @@ export default function MyAttendance() {
                         </button>
                     </div>
 
-                    {/* ================= LIVE LEAVE RECORDS TABLE ================= */}
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5 space-y-4">
                         <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
                             <FiFileText className="text-[#00a896]" /> My Leave Log Records
@@ -854,11 +931,19 @@ export default function MyAttendance() {
                             </div>
                             <div className="flex justify-between border-b border-slate-200/60 py-2">
                                 <span className="text-slate-500">Check In Time</span>
-                                <span className="font-bold text-slate-700">{parseLogTime(selectedCalendarDate.log?.checkIn)}</span>
+                                <span className="font-bold text-slate-700">{formatStringTime(selectedCalendarDate.log?.checkIn)}</span>
                             </div>
-                            <div className="flex justify-between pt-2">
+                            <div className="flex justify-between border-b border-slate-200/60 py-2">
                                 <span className="text-slate-500">Check Out Time</span>
-                                <span className="font-bold text-slate-700">{parseLogTime(selectedCalendarDate.log?.checkOut)}</span>
+                                <span className="font-bold text-slate-700">{formatStringTime(selectedCalendarDate.log?.checkOut)}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-200/60 py-2">
+                                <span className="text-slate-500">Working Hours</span>
+                                <span className="font-bold text-slate-700">{selectedCalendarDate.log?.workingHours || "00:00"}</span>
+                            </div>
+                            <div className="flex justify-between pt-1">
+                                <span className="text-slate-500">Remarks</span>
+                                <span className="font-semibold text-slate-700">{selectedCalendarDate.log?.remarks || "—"}</span>
                             </div>
                         </div>
 
