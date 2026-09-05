@@ -249,6 +249,7 @@ const RenewalManagement = () => {
               <option value="">Select Status</option>
               <option value="pending">Pending</option>
               <option value="renewed">Renewed</option>
+              <option value="notrenewed">Not Renewed</option>
             </select>
             <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
               <FiChevronDown size={14} />
@@ -549,6 +550,7 @@ const RenewalManagement = () => {
               >
                 <option value="pending">Pending</option>
                 <option value="renewed">Renewed</option>
+                <option value="notrenewed">Not Renewed</option>
               </select>
               <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
                 <FiChevronDown size={14} />
